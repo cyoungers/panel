@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2540"/>
+      <stop offset="0.55" stop-color="#0f1626"/>
+      <stop offset="1" stop-color="#0a0a0c"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <rect x="40" y="40" width="520" height="520" fill="none" stroke="#d4a24e" stroke-opacity="0.25" stroke-width="2" rx="12"/>
+  <text x="300" y="262" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="66" font-style="italic" fill="#ece6d8">Art of Jazz</text>
+  <line x1="215" y1="305" x2="385" y2="305" stroke="#d4a24e" stroke-width="1.5" stroke-opacity="0.7"/>
+  <text x="300" y="356" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="30" letter-spacing="8" fill="#b9bcc6">KNKX 88.5 FM</text>
+</svg>

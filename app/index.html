@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Now Playing</title>
+<style>
+  :root { --gap: 4vmin; --fg: #f2f2f4; --muted: #9aa0aa; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: #0a0a0c; color: var(--fg);
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  #bg {
+    position: fixed; inset: -8%; background-size: cover;
+    background-position: center; transform: scale(1.1);
+    filter: blur(40px) saturate(1.3) brightness(0.5);
+    transition: background-image .6s ease; z-index: 0;
+  }
+  #bg::after { content:""; position:absolute; inset:0;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,.2), rgba(0,0,0,.7)); }
+  #stage {
+    position: relative; z-index: 1; height: 100%;
+    display: flex; align-items: center; gap: var(--gap); padding: var(--gap);
+  }
+  #coverWrap {
+    height: 100%; aspect-ratio: 1/1; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #cover {
+    max-height: 100%; max-width: 100%; aspect-ratio: 1/1;
+    object-fit: contain; border-radius: 2vmin;
+    box-shadow: 0 1vmin 4vmin rgba(0,0,0,.6);
+    transition: opacity .5s ease; background: #1a1a1f;
+  }
+  #info {
+    flex: 1 1 auto; min-width: 0; height: 100%;
+    display: flex; flex-direction: column; padding: 2vmin 1vmin;
+  }
+  #feed { font-size: 2.4vmin; letter-spacing: .25em;
+          text-transform: uppercase; color: var(--muted); }
+  #feedrow { display: flex; align-items: center; gap: 2vmin; }
+  #playstate { font-size: 2vmin; letter-spacing: .15em; text-transform: uppercase; }
+  #playstate.playing { color: #5fae8c; }
+  #playstate.paused { color: #f2b705; font-weight: 600; }
+  #artist { font-size: 5.5vmin; font-weight: 700; line-height: 1.05; margin-top: 1vmin; }
+  #title { font-size: 4vmin; font-weight: 400; color: #d2d4da; margin-top: 1vmin; }
+  #album { font-size: 2.8vmin; color: var(--muted); margin-top: 1.5vmin; }
+  #details { font-size: 2.4vmin; color: #6f757f; margin-top: 0.6vmin;
+             letter-spacing: .03em; }
+  #description { font-size: 2.4vmin; color: #c2c6cf; line-height: 1.5;
+                 margin-top: 2.4vmin; max-width: 56vmin; white-space: pre-line; }
+  .spacer { flex: 1 1 auto; }
+  #ratingRow { display: flex; align-items: baseline; gap: 1.2vmin;
+               font-size: 2.6vmin; color: var(--muted); }
+  .rlabel { letter-spacing: .04em; }
+  #ratingVal { color: var(--fg); font-weight: 600; font-size: 3.6vmin; }
+  .rsub { font-size: 2.2vmin; color: #6f757f; margin-left: 1.5vmin; }
+  #ratingChart { display: flex; align-items: flex-end; gap: 0.6vmin;
+                 height: 8vmin; width: 40vmin; max-width: 100%; margin-bottom: 1.6vmin; }
+  #ratingChart .bar { flex: 1 1 0; min-height: 2%; border-radius: 0.4vmin 0.4vmin 0 0; }
+  #controls { display: none; gap: 2vmin; margin-top: 3vmin; }
+  #idle {
+    position: fixed; inset: 0; z-index: 2; display: flex;
+    align-items: center; justify-content: center; flex-direction: column;
+    gap: 2vmin; background: #0a0a0c; color: var(--muted); transition: opacity .6s ease;
+  }
+  #idle.hidden { opacity: 0; pointer-events: none; }
+  #idleTitle { font-size: 4vmin; letter-spacing: .15em; }
+  #clock { font-size: 9vmin; font-weight: 200; color: #34343c; }
+</style>
+</head>
+<body>
+  <div id="bg"></div>
+  <div id="stage">
+    <div id="coverWrap"><img id="cover" alt=""></div>
+    <div id="info">
+      <div id="feedrow">
+        <div id="feed"></div>
+        <div id="playstate"></div>
+      </div>
+      <div id="artist"></div>
+      <div id="title"></div>
+      <div id="album"></div>
+      <div id="details"></div>
+      <div id="description"></div>
+      <div class="spacer"></div>
+      <div id="ratingChart"></div>
+      <div id="ratingRow">
+        <span class="rlabel">Your rating</span>
+        <span id="ratingVal">&mdash;</span>
+        <span id="avgWrap" class="rsub"></span>
+      </div>
+      <div id="controls"><!-- rating + control buttons added later --></div>
+    </div>
+  </div>
+  <div id="idle">
+    <div id="idleTitle">RADIO PARADISE</div>
+    <div id="clock"></div>
+  </div>
+<script>
+  const POLL_MS = 3000;
+  const STALE_MS = 90 * 60 * 1000;   // beyond this, fall back to idle screen
+  let lastCover = null;
+
+  function setBg(url){
+    document.getElementById('bg').style.backgroundImage = 'url("' + url + '")';
+  }
+
+  function setText(id, val){
+    const el = document.getElementById(id);
+    el.textContent = val || '';
+    el.style.display = val ? '' : 'none';
+  }
+
+  let lastDist = '';
+  function renderChart(dist){
+    const el = document.getElementById('ratingChart');
+    if(!dist || !dist.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = '';
+    const max = Math.max.apply(null, dist.map(d => d.count || 0)) || 1;
+    el.innerHTML = dist.map(d => {
+      const h = Math.max(2, Math.round((d.count || 0) / max * 100));
+      return '<div class="bar" style="height:' + h + '%;background-color:'
+        + (d.color || '#888') + '"></div>';
+    }).join('');
+  }
+
+  async function poll(){
+    let s;
+    try { s = await (await fetch('/nowplaying', {cache:'no-store'})).json(); }
+    catch(e){ return; }
+    const idle = document.getElementById('idle');
+    const ageMs = (s && s.updated_at) ? (Date.now() - s.updated_at * 1000) : Infinity;
+    const live = s && s.cover_url && ageMs < STALE_MS;
+    if(!live){
+      if(!lastCover) idle.classList.remove('hidden');  // Option C: keep last art if we had it
+      return;
+    }
+    idle.classList.add('hidden');
+    if(s.cover_url !== lastCover){
+      const img = document.getElementById('cover');
+      img.style.opacity = 0;
+      const next = new Image();
+      next.onload = () => { img.src = s.cover_url; setBg(s.cover_url); img.style.opacity = 1; };
+      next.src = s.cover_url;
+      lastCover = s.cover_url;
+    }
+    setText('feed', s.feed);
+    const ps = document.getElementById('playstate');
+    if (s.playing === true) {
+      ps.textContent = '\u25B6 Playing'; ps.className = 'playing'; ps.style.display = '';
+    } else if (s.playing === false) {
+      ps.textContent = '\u23F8 Paused'; ps.className = 'paused'; ps.style.display = '';
+    } else {
+      ps.style.display = 'none';
+    }
+    setText('artist', s.artist);
+    setText('title', s.title);
+    setText('album', s.album);
+    const det = [s.released, s.length].filter(Boolean).join('  \u00b7  ');
+    setText('details', det);
+    setText('description', s.description);
+    const r = s.rating;
+    document.getElementById('ratingVal').textContent =
+      (r === null || r === '' || r === undefined) ? '\u2014' : r;
+    const avg = s.avg_rating
+      ? ('avg ' + s.avg_rating + (s.num_ratings ? ' (' + s.num_ratings + ')' : ''))
+      : '';
+    document.getElementById('avgWrap').textContent = avg;
+    const hasRating = !(r === null || r === '' || r === undefined);
+    document.getElementById('ratingRow').style.display =
+      (hasRating || s.avg_rating) ? '' : 'none';
+    const distKey = JSON.stringify(s.rating_dist || []);
+    if(distKey !== lastDist){ renderChart(s.rating_dist); lastDist = distKey; }
+  }
+
+  function clock(){
+    const d = new Date();
+    document.getElementById('clock').textContent =
+      d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+
+  poll(); setInterval(poll, POLL_MS);
+  clock(); setInterval(clock, 10000);
+</script>
+</body>
+</html>

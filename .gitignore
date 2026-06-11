@@ -1,0 +1,4 @@
+app/cover-am.jpg
+__pycache__/
+*.pyc
+.DS_Store

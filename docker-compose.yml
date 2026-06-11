@@ -1,0 +1,9 @@
+services:
+  panel:
+    build: .
+    container_name: panel
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./app:/app
+    restart: unless-stopped
