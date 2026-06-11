@@ -1,10 +1,29 @@
 import os
 import time
 import threading
+import urllib.request
+import urllib.parse
 from flask import Flask, request, jsonify, send_file
 
 app = Flask(__name__)
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+# --- Home scene relay (panel buttons -> KBM Public Web trigger -> Shortcuts) ---
+KM_HOST = "192.168.0.110"   # Mac running Keyboard Maestro
+KM_PORT = 4490
+KM_MACRO = "DA3D7EF3-3CC9-428F-9445-8B92744FD32E"  # "Set Home Scene" macro UID
+
+# button key -> Shortcut name (allowlist; nothing else can be triggered)
+SCENES = {
+    "kitchen":        "Panel Kitchen Lights",
+    "kitchen_off":    "Panel Kitchen Off",
+    "relax":          "Panel Relax",
+    "meditate":       "Panel Meditate",
+    "lr_off":         "Panel LR Off",
+    "shades_open":    "Panel Shades Open",
+    "shades_closed":  "Panel Shades Closed",
+    "shades_partial": "Panel Shades Partial",
+}
 
 _lock = threading.Lock()
 _state = {
@@ -58,11 +77,27 @@ def nowplaying():
         return jsonify(dict(_state))
 
 
+@app.route("/action/scene/<key>", methods=["POST", "OPTIONS"])
+def action_scene(key):
+    if request.method == "OPTIONS":
+        return ("", 204)
+    shortcut = SCENES.get(key)
+    if not shortcut:
+        return jsonify(ok=False, error="unknown scene", key=key), 404
+    url = "http://%s:%d/action.html?macro=%s&value=%s" % (
+        KM_HOST, KM_PORT, KM_MACRO, urllib.parse.quote(shortcut))
+    try:
+        urllib.request.urlopen(url, timeout=4)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e), key=key), 502
+    return jsonify(ok=True, key=key, shortcut=shortcut)
+
+
 @app.route("/action/<name>", methods=["POST", "OPTIONS"])
 def action(name):
     if request.method == "OPTIONS":
         return ("", 204)
-    # Stub: relay target (KBM trigger / Homebridge) wired in a later step.
+    # Generic stub retained; scenes are handled by /action/scene/<key>.
     return jsonify(ok=True, action=name, note="stub - not yet wired")
 
 

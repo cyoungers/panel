@@ -30,7 +30,8 @@ source (RP web player / Music app / KNKX stream)
 - `GET  /health`        health check
 - `GET  /nowplaying`    current state as JSON
 - `POST /nowplaying`    update state (merges provided fields)
-- `POST /action/<name>` stub for future control buttons (not wired)
+- `POST /action/scene/<key>`  fire a Home scene (see Home scenes below)
+- `POST /action/<name>` generic stub (unused)
 - `GET  /cover-am`      current Apple Music artwork (written by the AM macro)
 - `GET  /cover-knkx`    KNKX Art of Jazz cover graphic (static SVG)
 
@@ -56,6 +57,38 @@ The "Select Music Feed" macro sets the global `DND_MusicSource` to `RP` / `AM` /
   which posts them. `cover_url` points at `/cover-am?id=<persistentID>`.
 - **KNKX Art of Jazz** — "KNKX to Panel": posts a static payload (SVG cover +
   description). No per-track data; play/pause hidden.
+
+## Home scenes (panel buttons)
+
+The bottom button bar fires HomeKit scenes. Flow (event-driven, no polling):
+
+```
+tablet button -> POST /action/scene/<key>
+             -> container looks up key in the SCENES allowlist (main.py)
+             -> GET http://<mac>:4490/action.html?macro=<UID>&value=<ShortcutName>
+             -> KBM "Set Home Scene" macro runs: shortcuts run "<ShortcutName>"
+```
+
+Pieces, and the non-obvious bits:
+
+- **Container** (`main.py`): `KM_HOST` / `KM_PORT` / `KM_MACRO` constants, and the
+  `SCENES` dict maps button key -> Shortcut name. That dict is the allowlist —
+  nothing else can be triggered. Add a scene = add a dict entry + a button.
+- **KBM macro "Set Home Scene"** (its UID is `KM_MACRO`): must have a **Public
+  Web** trigger and be in a macro group available in **all applications**, or the
+  web server returns "Macro not found". Two actions:
+    1. Set Variable `DND_PanelScene` to `%TriggerValue%`
+    2. Execute Shell Script: `/usr/bin/shortcuts run "$KMVAR_DND_PanelScene"`
+  The value is bound to a variable first because Execute Shell Script does NOT
+  expand `%...%` tokens in its script body (ordinary text fields do).
+- **Shortcuts**: one per scene, each a Control Home action. Names use a `Panel `
+  prefix (e.g. `Panel Relax`) because a Shortcut can't share a name with a
+  HomeKit scene.
+- **KM Web Server**: enabled in KM Settings -> Web Server (port 4490).
+
+Buttons are momentary (set-only); the panel shows no on/off state because
+HomeKit doesn't report it back. Lights use per-room Off buttons instead of
+toggles (two LR scenes share the same lights, so a toggle would be ambiguous).
 
 ## Files
 

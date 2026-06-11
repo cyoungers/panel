@@ -12,6 +12,7 @@
     background: #0a0a0c; color: var(--fg);
     font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
     -webkit-user-select: none; user-select: none;
+    display: flex; flex-direction: column;
   }
   #bg {
     position: fixed; inset: -8%; background-size: cover;
@@ -22,7 +23,7 @@
   #bg::after { content:""; position:absolute; inset:0;
     background: radial-gradient(ellipse at center, rgba(0,0,0,.2), rgba(0,0,0,.7)); }
   #stage {
-    position: relative; z-index: 1; height: 100%;
+    position: relative; z-index: 1; flex: 1 1 auto; min-height: 0;
     display: flex; align-items: center; gap: var(--gap); padding: var(--gap);
   }
   #coverWrap {
@@ -63,13 +64,37 @@
   #ratingChart .bar { flex: 1 1 0; min-height: 2%; border-radius: 0.4vmin 0.4vmin 0 0; }
   #controls { display: none; gap: 2vmin; margin-top: 3vmin; }
   #idle {
-    position: fixed; inset: 0; z-index: 2; display: flex;
+    position: absolute; inset: 0; z-index: 2; display: flex;
     align-items: center; justify-content: center; flex-direction: column;
     gap: 2vmin; background: #0a0a0c; color: var(--muted); transition: opacity .6s ease;
   }
   #idle.hidden { opacity: 0; pointer-events: none; }
   #idleTitle { font-size: 4vmin; letter-spacing: .15em; }
   #clock { font-size: 9vmin; font-weight: 200; color: #34343c; }
+  #scenebar {
+    flex: 0 0 auto; z-index: 3;
+    display: flex; align-items: stretch; justify-content: center; gap: 3vmin;
+    padding: 1.6vmin 2vmin;
+    background: rgba(12,12,16,.78);
+    border-top: 1px solid rgba(255,255,255,.07);
+  }
+  .scene-group { display: flex; gap: 1.4vmin; }
+  .scene-group + .scene-group {
+    border-left: 1px solid rgba(255,255,255,.12); padding-left: 3vmin; }
+  .scene-btn {
+    -webkit-tap-highlight-color: transparent; -webkit-appearance: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.7vmin; width: 14.5vmin; padding: 1.3vmin 0.4vmin;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 1.6vmin; color: #d9dce2; cursor: pointer; font: inherit;
+    transition: background .12s ease, transform .1s ease, border-color .12s ease;
+  }
+  .scene-btn:active { transform: scale(.94); }
+  .scene-btn.flash { background: rgba(95,174,140,.45); border-color: rgba(95,174,140,.75); }
+  .scene-btn svg { width: 5vmin; height: 5vmin; stroke: currentColor; fill: none;
+                   stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .scene-btn .lbl { font-size: 1.9vmin; letter-spacing: .02em; color: #c2c6cf; }
+  .scene-btn.off, .scene-btn.off .lbl { color: #8b909a; }
 </style>
 </head>
 <body>
@@ -95,10 +120,48 @@
       </div>
       <div id="controls"><!-- rating + control buttons added later --></div>
     </div>
+    <div id="idle">
+      <div id="idleTitle">RADIO PARADISE</div>
+      <div id="clock"></div>
+    </div>
   </div>
-  <div id="idle">
-    <div id="idleTitle">RADIO PARADISE</div>
-    <div id="clock"></div>
+  <div id="scenebar">
+    <div class="scene-group">
+      <button class="scene-btn" data-scene="kitchen">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/></svg>
+        <span class="lbl">Kitchen</span>
+      </button>
+      <button class="scene-btn off" data-scene="kitchen_off">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+        <span class="lbl">Kitchen Off</span>
+      </button>
+      <button class="scene-btn" data-scene="relax">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/></svg>
+        <span class="lbl">LR Relax</span>
+      </button>
+      <button class="scene-btn" data-scene="meditate">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/></svg>
+        <span class="lbl">LR Meditate</span>
+      </button>
+      <button class="scene-btn off" data-scene="lr_off">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+        <span class="lbl">LR Off</span>
+      </button>
+    </div>
+    <div class="scene-group">
+      <button class="scene-btn" data-scene="shades_open">
+        <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1.5"/><rect x="5" y="4" width="14" height="2.5" fill="currentColor" fill-opacity=".4" stroke="none"/><line x1="5" y1="6.5" x2="19" y2="6.5" stroke-width="2"/></svg>
+        <span class="lbl">Open</span>
+      </button>
+      <button class="scene-btn" data-scene="shades_closed">
+        <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1.5"/><rect x="5" y="4" width="14" height="15" fill="currentColor" fill-opacity=".4" stroke="none"/><line x1="5" y1="19" x2="19" y2="19" stroke-width="2"/></svg>
+        <span class="lbl">Closed</span>
+      </button>
+      <button class="scene-btn" data-scene="shades_partial">
+        <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1.5"/><rect x="5" y="4" width="14" height="8" fill="currentColor" fill-opacity=".4" stroke="none"/><line x1="5" y1="12" x2="19" y2="12" stroke-width="2"/></svg>
+        <span class="lbl">Partial</span>
+      </button>
+    </div>
   </div>
 <script>
   const POLL_MS = 3000;
@@ -182,6 +245,16 @@
     document.getElementById('clock').textContent =
       d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   }
+
+  function fireScene(btn){
+    const key = btn.dataset.scene;
+    btn.classList.add('flash');
+    setTimeout(() => btn.classList.remove('flash'), 400);
+    fetch('/action/scene/' + key, {method:'POST'}).catch(()=>{});
+  }
+  document.querySelectorAll('.scene-btn').forEach(b => {
+    b.addEventListener('click', () => fireScene(b));
+  });
 
   poll(); setInterval(poll, POLL_MS);
   clock(); setInterval(clock, 10000);
