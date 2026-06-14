@@ -91,10 +91,16 @@
   }
   .scene-btn:active { transform: scale(.94); }
   .scene-btn.flash { background: rgba(95,174,140,.45); border-color: rgba(95,174,140,.75); }
+  .scene-btn.active { background: rgba(95,174,140,.18); border-color: rgba(95,174,140,.55); }
+  .scene-btn.active .lbl { color: #9de0c0; }
   .scene-btn svg { width: 5vmin; height: 5vmin; stroke: currentColor; fill: none;
                    stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-  .scene-btn .lbl { font-size: 1.9vmin; letter-spacing: .02em; color: #c2c6cf; }
-  .scene-btn.off, .scene-btn.off .lbl { color: #8b909a; }
+  /* default: grey bulb (devices off or unknown) */
+  .scene-btn { color: #8b909a; }
+  .scene-btn .lbl { font-size: 1.9vmin; letter-spacing: .02em; color: #8b909a; }
+  /* any device in scene is on: white bulb */
+  .scene-btn.any-on { color: #d9dce2; }
+  .scene-btn.any-on .lbl { color: #c2c6cf; }
 </style>
 </head>
 <body>
@@ -131,7 +137,7 @@
         <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/></svg>
         <span class="lbl">Kitchen</span>
       </button>
-      <button class="scene-btn off" data-scene="kitchen_off">
+      <button class="scene-btn" data-scene="kitchen_off">
         <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
         <span class="lbl">Kitchen Off</span>
       </button>
@@ -143,7 +149,7 @@
         <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/></svg>
         <span class="lbl">LR Meditate</span>
       </button>
-      <button class="scene-btn off" data-scene="lr_off">
+      <button class="scene-btn" data-scene="lr_off">
         <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
         <span class="lbl">LR Off</span>
       </button>
@@ -246,17 +252,131 @@
       d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   }
 
+  // --- HomeKit state tracking ---
+  const SCENE_DEVICES = {
+    kitchen:        ['lutron_4', 'lutron_3'],
+    kitchen_off:    ['lutron_4', 'lutron_3'],
+    relax:          ['hue_8', 'hue_15'],
+    meditate:       ['hue_8', 'hue_15'],
+    lr_off:         ['hue_8', 'hue_15'],
+    shades_open:    ['cover_lr', 'cover_ll', 'cover_rr', 'cover_rl'],
+    shades_closed:  ['cover_lr', 'cover_ll', 'cover_rr', 'cover_rl'],
+    shades_partial: ['cover_lr', 'cover_ll', 'cover_rr', 'cover_rl'],
+  };
+  // Immediate commanded on/off per scene (no bri — used until actual snapshot arrives)
+  const SCENE_COMMANDED = {
+    kitchen:      {lutron_4: {on:true},  lutron_3: {on:true}},
+    kitchen_off:  {lutron_4: {on:false}, lutron_3: {on:false}},
+    relax:        {hue_8:   {on:true},  hue_15:   {on:true}},
+    meditate:     {hue_8:   {on:true},  hue_15:   {on:true}},
+    lr_off:       {hue_8:   {on:false}, hue_15:   {on:false}},
+    shades_open:  {cover_lr: {on:true},  cover_ll: {on:true},  cover_rr: {on:true},  cover_rl: {on:true}},
+    shades_closed:{cover_lr: {on:false}, cover_ll: {on:false}, cover_rr: {on:false}, cover_rl: {on:false}},
+    shades_partial:{cover_lr:{on:true},  cover_ll: {on:true},  cover_rr: {on:true},  cover_rl: {on:true}},
+  };
+  // Curtains take much longer to physically move than lights take to dim
+  const SCENE_SETTLE_MS = {
+    kitchen_lights: 3500,
+    lr_lights:      3500,
+    shades:         20000,
+  };
+  const SCENE_GROUPS = {
+    kitchen: 'kitchen_lights', kitchen_off: 'kitchen_lights',
+    relax: 'lr_lights', meditate: 'lr_lights', lr_off: 'lr_lights',
+    shades_open: 'shades', shades_closed: 'shades', shades_partial: 'shades',
+  };
+
+  const expectedState = {};
+  const groupTimers = {};     // one pending snapshot timer per scene group
+  const activeOverride = {};  // group -> scene key; forces active during settle period
+  let hkState = {};
+
+  function snapshotScene(key) {
+    const devs = SCENE_DEVICES[key] || [];
+    if (!devs.length) return;
+    const commanded = SCENE_COMMANDED[key] || {};
+    const snap = {};
+    devs.forEach(dk => {
+      const cmd = commanded[dk];
+      if (!cmd) return;
+      const d = hkState[dk];
+      // Always use COMMANDED on/off — never the actual state at snapshot time
+      // This ensures drift detection works even if something changed during the settle window
+      snap[dk] = {on: cmd.on};
+      // For on-scenes: capture actual brightness to distinguish relax vs meditate
+      if (cmd.on && d && d.on) snap[dk].bri = d.bri;
+    });
+    expectedState[key] = snap;
+  }
+
+  function clearGroupExpected(key) {
+    const grp = SCENE_GROUPS[key];
+    // Cancel pending timer and override for this group
+    if (groupTimers[grp]) { clearTimeout(groupTimers[grp]); delete groupTimers[grp]; }
+    delete activeOverride[grp];
+    Object.keys(SCENE_GROUPS).forEach(k => {
+      if (SCENE_GROUPS[k] === grp) delete expectedState[k];
+    });
+  }
+
+  function deviceMatches(current, expected) {
+    if (!current || !expected) return false;
+    if (current.on !== expected.on) return false;
+    if (current.on && expected.bri != null && Math.abs((current.bri || 0) - expected.bri) > 5) return false;
+    return true;
+  }
+
+  function updateSceneButtons() {
+    document.querySelectorAll('.scene-btn').forEach(btn => {
+      const key = btn.dataset.scene;
+      const devs = SCENE_DEVICES[key] || [];
+      const grp = SCENE_GROUPS[key];
+      const exp = expectedState[key];
+      btn.classList.remove('active', 'any-on');
+      if (!devs.length) return;
+      if (devs.some(dk => hkState[dk] && hkState[dk].on)) btn.classList.add('any-on');
+      // During settle period, hold the pressed button active regardless of hkState
+      if (activeOverride[grp] === key) { btn.classList.add('active'); return; }
+      if (exp && devs.every(dk => deviceMatches(hkState[dk], exp[dk]))) btn.classList.add('active');
+    });
+  }
+
+  async function pollHomeKit() {
+    try {
+      const s = await (await fetch('/api/homekit', {cache:'no-store'})).json();
+      hkState = s;
+      updateSceneButtons();
+    } catch(e) {}
+  }
+
   function fireScene(btn){
     const key = btn.dataset.scene;
     btn.classList.add('flash');
     setTimeout(() => btn.classList.remove('flash'), 400);
     fetch('/action/scene/' + key, {method:'POST'}).catch(()=>{});
+
+    // Clear group (cancels pending timer + override), then hold this button active during settle
+    clearGroupExpected(key);
+    const grp = SCENE_GROUPS[key];
+    if (SCENE_COMMANDED[key]) expectedState[key] = SCENE_COMMANDED[key];
+    activeOverride[grp] = key;
+    updateSceneButtons();
+
+    // After scene settles: drop override, fresh poll, refine snapshot with actual state
+    groupTimers[grp] = setTimeout(async () => {
+      delete groupTimers[grp];
+      delete activeOverride[grp];
+      await pollHomeKit();
+      snapshotScene(key);
+      updateSceneButtons();
+    }, SCENE_SETTLE_MS[grp] || 3500);
   }
   document.querySelectorAll('.scene-btn').forEach(b => {
     b.addEventListener('click', () => fireScene(b));
   });
 
   poll(); setInterval(poll, POLL_MS);
+  pollHomeKit(); setInterval(pollHomeKit, 3000);
   clock(); setInterval(clock, 10000);
 </script>
 </body>

@@ -1,12 +1,65 @@
 import os
 import time
+import json
 import threading
 import urllib.request
 import urllib.parse
+import requests
 from flask import Flask, request, jsonify, send_file
 
 app = Flask(__name__)
 HERE = os.path.dirname(os.path.abspath(__file__))
+CREDS_DIR = os.environ.get("CREDS_DIR", "/creds")
+
+# --- Home Assistant state poller ---
+_hk_lock = threading.Lock()
+_hk_state = {}  # key -> {on, bri, name}
+
+
+def _load_ha_config():
+    path = os.path.join(CREDS_DIR, "ha.json")
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _poll_ha():
+    while True:
+        cfg = _load_ha_config()
+        if not cfg or cfg.get("token") == "YOUR_LONG_LIVED_TOKEN_HERE":
+            time.sleep(10)
+            continue
+        try:
+            headers = {
+                "Authorization": f"Bearer {cfg['token']}",
+                "Content-Type": "application/json",
+            }
+            r = requests.get(f"{cfg['url']}/api/states", headers=headers, timeout=5)
+            states = {s["entity_id"]: s for s in r.json()}
+            updates = {}
+            for key, info in cfg.get("entities", {}).items():
+                s = states.get(info["entity"])
+                if not s:
+                    continue
+                attrs = s.get("attributes", {})
+                if info["entity"].startswith("cover."):
+                    pos = attrs.get("current_position", 0)
+                    updates[key] = {"on": pos > 0, "bri": pos, "name": info["name"]}
+                else:
+                    on = s["state"] == "on"
+                    # HA brightness is 0-255; keep as-is for comparison with Hue scale
+                    bri = attrs.get("brightness")
+                    updates[key] = {"on": on, "bri": bri, "name": info["name"]}
+            with _hk_lock:
+                _hk_state.update(updates)
+        except Exception:
+            pass
+        time.sleep(5)
+
+
+threading.Thread(target=_poll_ha, daemon=True).start()
 
 # --- Home scene relay (panel buttons -> KBM Public Web trigger -> Shortcuts) ---
 KM_HOST = "192.168.0.110"   # Mac running Keyboard Maestro
@@ -55,6 +108,12 @@ def cors(resp):
 @app.route("/health")
 def health():
     return jsonify(status="ok")
+
+
+@app.route("/api/homekit")
+def homekit():
+    with _hk_lock:
+        return jsonify(dict(_hk_state))
 
 
 @app.route("/nowplaying", methods=["GET", "POST", "OPTIONS"])
