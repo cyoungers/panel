@@ -404,8 +404,8 @@
       const stateEl = tile.querySelector('.tile-state');
       if (!d) { stateEl.textContent = '—'; return; }
       if (key === 'lock_front') {
-        tile.classList.add(d.locked ? 'locked' : 'unlocked');
-        stateEl.textContent = d.locked ? 'Locked' : 'Unlocked';
+        tile.classList.add(d.on ? 'locked' : 'unlocked');
+        stateEl.textContent = d.on ? 'Locked' : 'Unlocked';
       } else if (key === 'garage') {
         tile.classList.add(d.on ? 'unlocked' : 'locked');
         stateEl.textContent = d.on ? 'Open' : 'Closed';
