@@ -40,6 +40,8 @@ def _poll_ha():
             states = {s["entity_id"]: s for s in r.json()}
             updates = {}
             for key, info in cfg.get("entities", {}).items():
+                if info.get("push") or not info.get("entity"):
+                    continue
                 s = states.get(info["entity"])
                 if not s:
                     continue
@@ -47,6 +49,9 @@ def _poll_ha():
                 if info["entity"].startswith("cover."):
                     pos = attrs.get("current_position", 0)
                     updates[key] = {"on": pos > 0, "bri": pos, "name": info["name"]}
+                elif info["entity"].startswith("lock."):
+                    locked = s["state"] == "locked"
+                    updates[key] = {"on": locked, "locked": locked, "name": info["name"]}
                 else:
                     on = s["state"] == "on"
                     # HA brightness is 0-255; keep as-is for comparison with Hue scale
@@ -150,6 +155,50 @@ def action_scene(key):
     except Exception as e:
         return jsonify(ok=False, error=str(e), key=key), 502
     return jsonify(ok=True, key=key, shortcut=shortcut)
+
+
+@app.route("/api/push/<key>", methods=["POST", "OPTIONS"])
+def push_status(key):
+    if request.method == "OPTIONS":
+        return ("", 204)
+    cfg = _load_ha_config()
+    if not cfg:
+        return jsonify(ok=False, error="no config"), 500
+    info = cfg.get("entities", {}).get(key)
+    if not info or not info.get("push"):
+        return jsonify(ok=False, error="not pushable"), 403
+    data = request.get_json(silent=True) or {}
+    if "on" not in data:
+        return jsonify(ok=False, error="missing 'on'"), 400
+    raw = data["on"]
+    on = False if raw in (False, 0, "false", "0", "off", "no") else bool(raw)
+    with _hk_lock:
+        _hk_state[key] = {"on": on, "name": info["name"]}
+    return jsonify(ok=True, key=key, on=on)
+
+
+@app.route("/action/ha/<key>/<service>", methods=["POST", "OPTIONS"])
+def action_ha(key, service):
+    if request.method == "OPTIONS":
+        return ("", 204)
+    cfg = _load_ha_config()
+    if not cfg:
+        return jsonify(ok=False, error="no config"), 500
+    info = cfg.get("entities", {}).get(key)
+    if not info or not info.get("controllable"):
+        return jsonify(ok=False, error="not controllable"), 403
+    if service not in ("turn_on", "turn_off", "toggle"):
+        return jsonify(ok=False, error="bad service"), 400
+    entity_id = info["entity"]
+    domain = entity_id.split(".")[0]
+    headers = {"Authorization": f"Bearer {cfg['token']}", "Content-Type": "application/json"}
+    try:
+        requests.post(
+            f"{cfg['url']}/api/services/{domain}/{service}",
+            headers=headers, json={"entity_id": entity_id}, timeout=5)
+        return jsonify(ok=True, key=key, service=service)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 502
 
 
 @app.route("/action/<name>", methods=["POST", "OPTIONS"])

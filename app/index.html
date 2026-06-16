@@ -63,6 +63,39 @@
                  height: 8vmin; width: 40vmin; max-width: 100%; margin-bottom: 1.6vmin; }
   #ratingChart .bar { flex: 1 1 0; min-height: 2%; border-radius: 0.4vmin 0.4vmin 0 0; }
   #controls { display: none; gap: 2vmin; margin-top: 3vmin; }
+  #rightbar {
+    flex: 0 0 auto; align-self: stretch;
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 1.5vmin; padding: 1.6vmin 1vmin;
+    width: 15vmin;
+    background: rgba(12,12,16,.78);
+    border-left: 1px solid rgba(255,255,255,.07);
+  }
+  .status-tile {
+    -webkit-tap-highlight-color: transparent; -webkit-appearance: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.7vmin; padding: 1.3vmin 0.4vmin;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 1.6vmin; color: #8b909a; font: inherit; cursor: default;
+  }
+  .status-tile.clickable { cursor: pointer; transition: background .12s ease, transform .1s ease; }
+  .status-tile.clickable:active { transform: scale(.94); }
+  .status-tile svg { width: 5vmin; height: 5vmin; stroke: currentColor; fill: none;
+                     stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .status-tile .tile-lbl { font-size: 1.7vmin; letter-spacing: .02em; color: #8b909a; }
+  .status-tile .tile-state { font-size: 1.9vmin; font-weight: 600; color: #8b909a; }
+  .status-tile.locked { color: #5fae8c; }
+  .status-tile.locked .tile-lbl { color: #c2c6cf; }
+  .status-tile.locked .tile-state { color: #5fae8c; }
+  .status-tile.unlocked { color: #f2b705; border-color: rgba(242,183,5,.45); }
+  .status-tile.unlocked .tile-lbl { color: #c2c6cf; }
+  .status-tile.unlocked .tile-state { color: #f2b705; }
+  .status-tile.charging { color: #f2b705; }
+  .status-tile.charging .tile-lbl { color: #c2c6cf; }
+  .status-tile.charging .tile-state { color: #f2b705; }
+  .status-tile.dev-on { color: #d9dce2; background: rgba(95,174,140,.18); border-color: rgba(95,174,140,.55); }
+  .status-tile.dev-on .tile-lbl { color: #9de0c0; }
+  .status-tile.dev-on .tile-state { color: #9de0c0; }
   #idle {
     position: absolute; inset: 0; z-index: 2; display: flex;
     align-items: center; justify-content: center; flex-direction: column;
@@ -125,6 +158,28 @@
         <span id="avgWrap" class="rsub"></span>
       </div>
       <div id="controls"><!-- rating + control buttons added later --></div>
+    </div>
+    <div id="rightbar">
+      <div class="status-tile" data-key="lock_front">
+        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span class="tile-lbl">Front Door</span>
+        <span class="tile-state">—</span>
+      </div>
+      <div class="status-tile" data-key="garage">
+        <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+        <span class="tile-lbl">Garage</span>
+        <span class="tile-state">—</span>
+      </div>
+      <div class="status-tile" data-key="charge">
+        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span class="tile-lbl">Car</span>
+        <span class="tile-state">—</span>
+      </div>
+      <button class="status-tile clickable" data-key="bedroom">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.5.5 1 1.5 1 2.5h6c0-1 .5-2 1-2.5A6 6 0 0 0 12 3z"/></svg>
+        <span class="tile-lbl">Bedroom</span>
+        <span class="tile-state">—</span>
+      </button>
     </div>
     <div id="idle">
       <div id="idleTitle">RADIO PARADISE</div>
@@ -341,11 +396,45 @@
     });
   }
 
+  function updateRightbar() {
+    document.querySelectorAll('.status-tile').forEach(tile => {
+      const key = tile.dataset.key;
+      const d = hkState[key];
+      tile.classList.remove('locked', 'unlocked', 'charging', 'dev-on');
+      const stateEl = tile.querySelector('.tile-state');
+      if (!d) { stateEl.textContent = '—'; return; }
+      if (key === 'lock_front') {
+        tile.classList.add(d.locked ? 'locked' : 'unlocked');
+        stateEl.textContent = d.locked ? 'Locked' : 'Unlocked';
+      } else if (key === 'garage') {
+        tile.classList.add(d.on ? 'unlocked' : 'locked');
+        stateEl.textContent = d.on ? 'Open' : 'Closed';
+      } else if (key === 'charge') {
+        if (d.on) { tile.classList.add('charging'); stateEl.textContent = 'Charging'; }
+        else { stateEl.textContent = 'No Charging'; }
+      } else if (key === 'bedroom') {
+        if (d.on) { tile.classList.add('dev-on'); stateEl.textContent = 'On'; }
+        else { stateEl.textContent = 'Off'; }
+      }
+    });
+  }
+
+  document.querySelectorAll('.status-tile.clickable').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const key = tile.dataset.key;
+      const service = (hkState[key] && hkState[key].on) ? 'turn_off' : 'turn_on';
+      if (hkState[key]) hkState[key] = {...hkState[key], on: service === 'turn_on'};
+      updateRightbar();
+      fetch('/action/ha/' + key + '/' + service, {method:'POST'}).catch(()=>{});
+    });
+  });
+
   async function pollHomeKit() {
     try {
       const s = await (await fetch('/api/homekit', {cache:'no-store'})).json();
       hkState = s;
       updateSceneButtons();
+      updateRightbar();
     } catch(e) {}
   }
 
