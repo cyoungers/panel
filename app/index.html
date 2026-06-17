@@ -245,6 +245,19 @@
     el.style.display = val ? '' : 'none';
   }
 
+  const BAR_COLORS = [
+    'rgb(78,121,167)',  // 1
+    'rgb(242,142,43)',  // 2
+    'rgb(225,87,89)',   // 3
+    'rgb(118,183,178)', // 4
+    'rgb(89,161,79)',   // 5
+    'rgb(237,201,72)',  // 6
+    'rgb(176,122,161)', // 7
+    'rgb(255,157,167)', // 8
+    'rgb(156,117,95)',  // 9
+    'rgb(186,176,172)', // 10
+  ];
+
   let lastDist = '';
   function renderChart(dist){
     const el = document.getElementById('ratingChart');
@@ -258,8 +271,8 @@
     const max = Math.max.apply(null, dist.map(d => d.count || 0)) || 1;
     el.innerHTML = dist.map(d => {
       const h = Math.max(2, Math.round((d.count || 0) / max * 100));
-      return '<div class="bar" style="height:' + h + '%;background-color:'
-        + (d.color || '#888') + '"></div>';
+      const color = BAR_COLORS[(d.n || 1) - 1] || d.color || '#888';
+      return '<div class="bar" style="height:' + h + '%;background-color:' + color + '"></div>';
     }).join('');
     lblEl.innerHTML = dist.map(d => '<span>' + (d.n || '') + '</span>').join('');
   }
