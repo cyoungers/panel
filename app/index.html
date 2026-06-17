@@ -71,8 +71,11 @@
   #rightbar {
     flex: 0 0 auto; align-self: stretch;
     display: flex; flex-direction: column; justify-content: center;
-    gap: 1.5vmin; padding: 1.6vmin 1vmin;
-    width: 15vmin;
+    gap: 1.5vmin;
+    padding: 1.6vmin 1vmin 1.6vmin 1vmin;
+    width: calc(15vmin + var(--gap));
+    margin-right: calc(-1 * var(--gap));
+    margin-bottom: calc(-1 * var(--gap));
     background: rgba(12,12,16,.78);
     border-left: 1px solid rgba(255,255,255,.07);
   }
