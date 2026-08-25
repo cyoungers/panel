@@ -93,6 +93,19 @@ value on the now-playing heart widget. Script source mirrored at
 is now a `<button class="rating-heart-btn">` (was an `<img title="...">`); the
 ten `.drating_N` rating-pill classes were unchanged by the redesign.
 
+A "Select Music Feed" macro reads KM variable `RPFeedName` (must exactly match
+a channel's display name, e.g. "The Main Mix", "Mellow Mix", "RockIt!", "The
+Globe", "Beyond...", "Sanctuary", "Serenity", "My Paradise", "KFAT", "Radio
+2050") and switches the RP web player to that channel. Script source mirrored
+at `mac-scripts/rp_select_feed.applescript`. Also rewritten 2026-08-25 — the
+channel switcher used to be an Angular Material menu
+(`.mat-menu-trigger.channel-selector` / `.mat-menu-content [mat-menu-item]`);
+it's now a `.action-channels` toggle button that expands a `.channel-list` of
+`.channel-row` buttons. The old version also re-injected an inline
+track-change tracker (polling stale selectors, POSTing to a
+trigger.keyboardmaestro.com webhook) that duplicated `rp_to_panel.applescript`
+and was silently broken since the redesign — dropped rather than fixed.
+
 ## Home scenes (panel buttons)
 
 The bottom button bar fires HomeKit scenes and shows live device state.
@@ -172,7 +185,8 @@ panel/
     ├── am_post.py               posts AM track fields to the panel
     ├── rp_to_panel.applescript  scrapes RP web player DOM, returns JSON
     ├── rp_status.applescript    checks RP tab's play/pause state
-    └── rp_set_rating.applescript  clicks a rating value on the RP heart widget
+    ├── rp_set_rating.applescript  clicks a rating value on the RP heart widget
+    └── rp_select_feed.applescript  switches the RP channel/feed
 ```
 
 `app/cover-am.jpg` is written at runtime by the AM macro (gitignored).
