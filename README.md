@@ -82,6 +82,17 @@ independent of the publisher macro above). Script source mirrored at
 site redesign — the old `.start-listening` element it read no longer exists in
 the new DOM.
 
+A "Play-Pause" macro's RP-toggle actions click `#pause-button` (when playing)
+or `#play-button` (when paused/never-played) directly in the Safari tab — no
+separate script file, since it's just a one-line `getElementById(...).click()`
+per case inline in the macro.
+
+A "Set Song Rating" macro reads a KM variable and clicks the matching rating
+value on the now-playing heart widget. Script source mirrored at
+`mac-scripts/rp_set_rating.applescript`. Also rewritten 2026-08-25 — the heart
+is now a `<button class="rating-heart-btn">` (was an `<img title="...">`); the
+ten `.drating_N` rating-pill classes were unchanged by the redesign.
+
 ## Home scenes (panel buttons)
 
 The bottom button bar fires HomeKit scenes and shows live device state.
@@ -160,7 +171,8 @@ panel/
 └── mac-scripts/         source that runs on the Mac inside KM macros
     ├── am_post.py               posts AM track fields to the panel
     ├── rp_to_panel.applescript  scrapes RP web player DOM, returns JSON
-    └── rp_status.applescript    checks RP tab's play/pause state
+    ├── rp_status.applescript    checks RP tab's play/pause state
+    └── rp_set_rating.applescript  clicks a rating value on the RP heart widget
 ```
 
 `app/cover-am.jpg` is written at runtime by the AM macro (gitignored).
