@@ -64,7 +64,11 @@ The "Select Music Feed" macro sets the global `DND_MusicSource` to `RP` / `AM` /
 
 - **Radio Paradise** — "RP to Panel": AppleScript scrapes the RP web player DOM
   (title, artist, album, date, length, your rating, average, rating histogram,
-  play state, cover) and posts it.
+  play state, cover) and posts it. Script source mirrored at
+  `mac-scripts/rp_to_panel.applescript` (paste into the macro's Execute
+  AppleScript step — KM doesn't export/import this piece on its own). Rewritten
+  2026-08-25 for RP's Angular SPA redesign; selectors are specific to that DOM
+  and will need updating if RP redesigns again.
 - **Apple Music** — "AM to Panel": AppleScript reads the Music app, writes the
   track artwork to `app/cover-am.jpg`, and pipes fields to `~/ai/am_post.py`,
   which posts them. `cover_url` points at `/cover-am?id=<persistentID>`.
@@ -145,11 +149,18 @@ panel/
 │   ├── main.py          Flask app (now-playing state, HA polling, scene relay)
 │   ├── index.html       display page + scene bar JS
 │   └── knkx.svg         KNKX cover graphic
-└── creds/               gitignored; contains ha.json (HA token + entity map)
+├── creds/               gitignored; contains ha.json (HA token + entity map)
+└── mac-scripts/         source that runs on the Mac inside KM macros
+    ├── am_post.py               posts AM track fields to the panel
+    └── rp_to_panel.applescript  scrapes RP web player DOM, returns JSON
 ```
 
 `app/cover-am.jpg` is written at runtime by the AM macro (gitignored).
-`~/ai/am_post.py` lives on the Mac (where Keyboard Maestro runs), not here.
+
+`mac-scripts/` mirrors source that actually runs on the Mac inside Keyboard
+Maestro macros — `am_post.py` is invoked from a shell script action;
+`rp_to_panel.applescript` is pasted directly into an Execute AppleScript
+action. Neither is picked up automatically by KM; copy changes over by hand.
 
 ## Deploy / iterate
 
