@@ -75,6 +75,13 @@ The "Select Music Feed" macro sets the global `DND_MusicSource` to `RP` / `AM` /
 - **KNKX Art of Jazz** — "KNKX to Panel": posts a static payload (SVG cover +
   description). No per-track data; play/pause hidden.
 
+A separate "Get Safari and RP status" macro checks whether the RP Safari tab is
+playing/paused (used to drive play/pause toggling from elsewhere in KM,
+independent of the publisher macro above). Script source mirrored at
+`mac-scripts/rp_status.applescript`. Also rewritten 2026-08-25 for the same
+site redesign — the old `.start-listening` element it read no longer exists in
+the new DOM.
+
 ## Home scenes (panel buttons)
 
 The bottom button bar fires HomeKit scenes and shows live device state.
@@ -152,7 +159,8 @@ panel/
 ├── creds/               gitignored; contains ha.json (HA token + entity map)
 └── mac-scripts/         source that runs on the Mac inside KM macros
     ├── am_post.py               posts AM track fields to the panel
-    └── rp_to_panel.applescript  scrapes RP web player DOM, returns JSON
+    ├── rp_to_panel.applescript  scrapes RP web player DOM, returns JSON
+    └── rp_status.applescript    checks RP tab's play/pause state
 ```
 
 `app/cover-am.jpg` is written at runtime by the AM macro (gitignored).
