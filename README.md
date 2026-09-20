@@ -3,7 +3,8 @@
 A self-hosted now-playing display for a wall-mounted tablet. Shows album art and
 metadata for the currently playing music source (Radio Paradise, Apple Music, or
 KNKX Art of Jazz), driven by Keyboard Maestro on the Mac. Includes a home
-automation scene bar backed by live device state from Home Assistant.
+automation scene bar backed by live device state from Home Assistant, and
+auto-skips banned or poorly-rated Radio Paradise tracks.
 
 ## Architecture
 
@@ -43,6 +44,8 @@ Hue bridge / Lutron Smart Bridge / Aqara Hub M3
 - `GET  /nowplaying`    current state as JSON
 - `POST /nowplaying`    update state (merges provided fields)
 - `GET  /api/homekit`   live device states (from Home Assistant)
+- `GET  /api/banned-list`   current RP banned-list entries (debug/inspection)
+- `POST /api/banned-list`   replace the RP banned-list entries (see RP auto-skip below)
 - `POST /action/scene/<key>`  fire a Home scene (see Home scenes below)
 - `POST /action/<name>` generic stub (unused)
 - `GET  /cover-am`      current Apple Music artwork (written by the AM macro)
@@ -56,6 +59,10 @@ updated_at`
 
 `description` and `playing` clear automatically when a POST omits them, so
 they don't linger across source switches.
+
+`GET /nowplaying` also includes `last_skip` (`{artist, title, reason, rating,
+at}` or `null`) — the most recent auto-skip decision, used by the display
+page's skip banner. See RP auto-skip below.
 
 ## Sources (Keyboard Maestro)
 
@@ -114,6 +121,64 @@ it's now a `.action-channels` toggle button that expands a `.channel-list` of
 track-change tracker (polling stale selectors, POSTing to a
 trigger.keyboardmaestro.com webhook) that duplicated `rp_to_panel.applescript`
 and was silently broken since the redesign — dropped rather than fixed.
+
+## RP auto-skip (banned artists/titles + low ratings)
+
+The panel auto-skips a playing RP track if its artist or title is on the
+user's banned list, or if it was previously rated ≤4 (RP's own "your rating"
+for that track, already scraped by "RP to Panel" — no extra data source
+needed for the rating check).
+
+Banned-list flow:
+
+```
+DND_RPBannedArtistList (KM global variable, one entry per line)
+  -> appended to by the user's own "ban artist/song" KM macro
+  -> that macro's last action runs mac-scripts/rp_push_banned_list.sh
+  -> POST /api/banned-list (JSON-wraps the variable's raw text)
+  -> container in-memory banned set + creds/rp_banned_list.json (persisted)
+```
+
+Each line is optionally tagged with what kind of ban it is, so the skip
+banner can say exactly why:
+
+- `A|<name>` — banned artist (any track by them skips)
+- `T|<name>` — banned track title (that title skips regardless of artist)
+- untagged — matched against both artist and title (legacy/simple entries)
+
+Matching is case-insensitive and exact-line (not substring/fuzzy).
+
+Skip trigger: on every `/nowplaying` POST, the panel checks the just-updated
+artist/title/rating against the banned set and the rating threshold
+(`RP_SKIP_RATING_MAX` in `main.py`, default 4). On a match it fires
+
+```
+http://192.168.0.110:4490/action.html?macro=144A8A9E-ABF0-440F-B843-2C497A19C59B
+```
+
+— the user's "skip RP track" KM macro (in KM macro group
+`DABCD81D-FCDC-40B5-9CA8-3EDF83549282`) — in a background thread, so it never
+delays the `/nowplaying` response. **That macro's web trigger must have
+Public Web access enabled in KM**, or the URL returns 200 without doing
+anything. Skip attempts are deduped per (artist, title) and logged to
+`docker logs panel` (`[rp-skip] ...` lines) — check those first if a skip
+silently doesn't happen.
+
+If a banned-list push newly bans whatever's *currently* playing, the panel
+assumes the user's own ban macro is already skipping it (that's the point of
+that macro) and marks the track as handled without firing its own skip —
+avoids a redundant double-skip race between the two.
+
+The display page shows a large, centered banner (track title / artist /
+reason pill — BANNED ARTIST, BANNED TRACK, BANNED, or RATED X/10 — for ~7s)
+plus a confirmation chime. The chime needs Fully Kiosk's audio-autoplay
+setting enabled, or the browser's autoplay policy silently blocks it until
+the tablet is touched.
+
+`scripts/test_rp_skip.sh` exercises both skip paths via curl without needing
+a real banned/low-rated track to come up naturally on RP — it deliberately
+fires the real skip macro each time, so run it while able to watch/listen,
+not as a background check.
 
 ## Home scenes (panel buttons)
 
@@ -190,6 +255,9 @@ panel/
 │   ├── index.html       display page + scene bar JS
 │   └── knkx.svg         KNKX cover graphic
 ├── creds/               gitignored; contains ha.json (HA token + entity map)
+│                         and rp_banned_list.json (auto-written banned-list cache)
+├── scripts/
+│   └── test_rp_skip.sh  manually exercise the RP auto-skip feature (fires a real skip)
 └── mac-scripts/         source that runs on the Mac inside KM macros
     ├── am_post.py               posts AM track fields to the panel
     ├── rp_to_panel.applescript  scrapes RP web player DOM, returns JSON
@@ -197,7 +265,8 @@ panel/
     ├── rp_playpause_state.js    checks RP play/pause state for the Play-Pause macro
     ├── rp_pause.applescript    clicks #pause-button in the RP tab (Play-Pause macro's playing case)
     ├── rp_set_rating.applescript  clicks a rating value on the RP heart widget
-    └── rp_select_feed.applescript  switches the RP channel/feed
+    ├── rp_select_feed.applescript  switches the RP channel/feed
+    └── rp_push_banned_list.sh  POSTs DND_RPBannedArtistList to /api/banned-list
 ```
 
 `app/cover-am.jpg` is written at runtime by the AM macro (gitignored).

@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import json
 import threading
@@ -70,6 +71,115 @@ threading.Thread(target=_poll_ha, daemon=True).start()
 KM_HOST = "192.168.0.110"   # Mac running Keyboard Maestro
 KM_PORT = 4490
 KM_MACRO = "DA3D7EF3-3CC9-428F-9445-8B92744FD32E"  # "Set Home Scene" macro UID
+KM_SKIP_MACRO = "144A8A9E-ABF0-440F-B843-2C497A19C59B"  # "Skip RP Track" macro UID
+RP_SKIP_RATING_MAX = 4  # skip tracks previously rated this or lower
+
+# --- RP auto-skip: banned artists/titles + low-rating ---
+# Entries come from the "DND_RPBannedArtistList" Keyboard Maestro global
+# variable (one entry per line). A "Push RP Banned List" step in the user's
+# "ban artist/song" KM macro POSTs the raw text here every time it bans
+# something, so the panel always has a fresh copy without polling KM.
+#
+# Each line is optionally tagged with its kind so the skip banner can say
+# exactly what matched: "A|Nickelback" (artist) or "T|Free Bird" (track
+# title). An untagged line ("Nickelback") still works as before -- matched
+# against both artist and title -- so pre-existing entries don't need
+# updating.
+BANNED_LIST_PATH = os.path.join(CREDS_DIR, "rp_banned_list.json")
+
+_banned_lock = threading.Lock()
+_banned_entries = set()  # {(type, normalized_value)}, type in "artist"/"title"/"either"
+
+
+def _parse_banned_line(line):
+    line = line.strip()
+    if not line:
+        return None
+    if len(line) > 2 and line[1] == "|" and line[0].upper() in ("A", "T"):
+        typ = "artist" if line[0].upper() == "A" else "title"
+        val = line[2:].strip().lower()
+        return (typ, val) if val else None
+    return ("either", line.lower())
+
+
+def _load_banned_list():
+    global _banned_entries
+    try:
+        with open(BANNED_LIST_PATH) as f:
+            raw = json.load(f).get("entries", [])
+        parsed = {(e[0], e[1]) for e in raw if isinstance(e, list) and len(e) == 2}
+        with _banned_lock:
+            _banned_entries = parsed
+    except Exception:
+        pass
+
+
+def _save_banned_list(entries):
+    try:
+        with open(BANNED_LIST_PATH, "w") as f:
+            json.dump({"entries": sorted([typ, val] for typ, val in entries)}, f)
+    except Exception:
+        pass
+
+
+_load_banned_list()
+
+_skip_lock = threading.Lock()
+_last_skip_track = None  # (artist, title) normalized, last track we fired a skip for
+_last_skip_event = None  # {artist, title, reason, rating, at} for the panel UI banner
+
+
+def _trigger_km_skip():
+    url = "http://%s:%d/action.html?macro=%s" % (KM_HOST, KM_PORT, KM_SKIP_MACRO)
+    try:
+        resp = urllib.request.urlopen(url, timeout=4)
+        print("[rp-skip] triggered ok, status=%s" % resp.status, flush=True)
+    except Exception as e:
+        print("[rp-skip] FAILED to reach KM at %s: %r" % (url, e), flush=True)
+
+
+def _maybe_skip_track(artist, title, rating):
+    """Fire the RP skip macro if the now-playing track is banned or was
+    previously rated RP_SKIP_RATING_MAX or lower. Runs the trigger in a
+    background thread so it never delays the /nowplaying response."""
+    global _last_skip_track, _last_skip_event
+    norm_artist = (artist or "").strip().lower()
+    norm_title = (title or "").strip().lower()
+    if not norm_artist and not norm_title:
+        return
+    track_key = (norm_artist, norm_title)
+
+    reason = None
+    rating_val = None
+    with _banned_lock:
+        banned = _banned_entries
+    for typ, val in banned:
+        if typ in ("artist", "either") and val == norm_artist:
+            reason = "banned_artist" if typ == "artist" else "banned"
+            break
+        if typ in ("title", "either") and val == norm_title:
+            reason = "banned_title" if typ == "title" else "banned"
+            break
+    if not reason:
+        m = re.search(r"\d+", str(rating) if rating is not None else "")
+        if m and int(m.group()) <= RP_SKIP_RATING_MAX:
+            reason = "rating"
+            rating_val = int(m.group())
+
+    if not reason:
+        return
+
+    with _skip_lock:
+        if _last_skip_track == track_key:
+            return
+        _last_skip_track = track_key
+        _last_skip_event = {
+            "artist": artist, "title": title, "reason": reason,
+            "rating": rating_val, "at": time.time(),
+        }
+
+    print("[rp-skip] decided to skip %r by %r (reason=%s)" % (title, artist, reason), flush=True)
+    threading.Thread(target=_trigger_km_skip, daemon=True).start()
 
 # button key -> Shortcut name (allowlist; nothing else can be triggered)
 SCENES = {
@@ -136,9 +246,48 @@ def nowplaying():
             _state["description"] = data.get("description", "")
             _state["updated_at"] = time.time()
             snap = dict(_state)
+        _maybe_skip_track(snap.get("artist"), snap.get("title"), snap.get("rating"))
         return jsonify(ok=True, state=snap)
     with _lock:
-        return jsonify(dict(_state))
+        snap = dict(_state)
+    with _skip_lock:
+        snap["last_skip"] = _last_skip_event
+    return jsonify(snap)
+
+
+@app.route("/api/banned-list", methods=["GET", "POST", "OPTIONS"])
+def banned_list():
+    global _banned_entries, _last_skip_track
+    if request.method == "OPTIONS":
+        return ("", 204)
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        raw = data.get("list", "")
+        entries = {p for p in (_parse_banned_line(l) for l in raw.splitlines()) if p}
+        with _banned_lock:
+            _banned_entries = entries
+        _save_banned_list(entries)
+
+        # If this push just banned whatever's currently playing, the macro
+        # that pushed it is presumably about to skip that track itself (this
+        # is exactly the "ban this track" flow) -- mark it as already
+        # handled so /nowplaying doesn't race it and fire a second, redundant
+        # skip for the same track.
+        with _lock:
+            cur_artist = (_state.get("artist") or "").strip().lower()
+            cur_title = (_state.get("title") or "").strip().lower()
+        matched = any(
+            (typ in ("artist", "either") and val == cur_artist) or
+            (typ in ("title", "either") and val == cur_title)
+            for typ, val in entries
+        )
+        if matched:
+            with _skip_lock:
+                _last_skip_track = (cur_artist, cur_title)
+
+        return jsonify(ok=True, count=len(entries))
+    with _banned_lock:
+        return jsonify(entries=sorted([typ, val] for typ, val in _banned_entries))
 
 
 @app.route("/action/scene/<key>", methods=["POST", "OPTIONS"])
