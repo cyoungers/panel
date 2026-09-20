@@ -82,10 +82,19 @@ independent of the publisher macro above). Script source mirrored at
 site redesign — the old `.start-listening` element it read no longer exists in
 the new DOM.
 
-A "Play-Pause" macro's RP-toggle actions click `#pause-button` (when playing)
-or `#play-button` (when paused/never-played) directly in the Safari tab — no
-separate script file, since it's just a one-line `getElementById(...).click()`
-per case inline in the macro.
+A "Play-Pause" macro checks current state with an Execute JavaScript in Front
+Browser step (source mirrored at `mac-scripts/rp_playpause_state.js`,
+returns `"Pause"`/`"Play"`), then branches to a toggle action that clicks
+`#pause-button` (when playing) or `#play-button` (when paused/never-played)
+directly in the Safari tab. The "playing" case (pause) is mirrored at
+`mac-scripts/rp_pause.applescript`; the other cases are still just a one-line
+`getElementById(...).click()` inline in the macro, no separate file. The
+toggle clicks were rewritten 2026-08-25 for the redesign; the state check
+followed on 2026-08-27 — it read `title="Pause"`/`title="Play"` attributes,
+which the redesign had already dropped in favor of the same
+`#pause-button`/`#play-button` ids the toggle actions use. `rp_pause.applescript`
+itself regressed to clicking `#play-button` (a silent no-op while playing,
+since that id only exists while paused) and was fixed back to `#pause-button`.
 
 A "Set Song Rating" macro reads a KM variable and clicks the matching rating
 value on the now-playing heart widget. Script source mirrored at
@@ -185,6 +194,8 @@ panel/
     ├── am_post.py               posts AM track fields to the panel
     ├── rp_to_panel.applescript  scrapes RP web player DOM, returns JSON
     ├── rp_status.applescript    checks RP tab's play/pause state
+    ├── rp_playpause_state.js    checks RP play/pause state for the Play-Pause macro
+    ├── rp_pause.applescript    clicks #pause-button in the RP tab (Play-Pause macro's playing case)
     ├── rp_set_rating.applescript  clicks a rating value on the RP heart widget
     └── rp_select_feed.applescript  switches the RP channel/feed
 ```
