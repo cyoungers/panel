@@ -133,11 +133,22 @@ Banned-list flow:
 
 ```
 DND_RPBannedArtistList (KM global variable, one entry per line)
-  -> appended to by the user's own "ban artist/song" KM macro
-  -> that macro's last action runs mac-scripts/rp_push_banned_list.sh
-  -> POST /api/banned-list (JSON-wraps the variable's raw text)
+  -> changed by "Ban Artist or Song", "Edit Banned artist List", or
+     "RP Player Tracker notifiy" (KM macros)
+  -> reaches the panel two ways, both carrying the variable's raw text:
+       a. every 5s: "RP to panel" adds it as a "banned_list" field on its
+          /nowplaying POST (mac-scripts/rp_to_panel_post.sh)
+       b. immediately after a ban: "Ban Artist or Song" runs
+          mac-scripts/rp_push_banned_list.sh -> POST /api/banned-list
   -> container in-memory banned set + creds/rp_banned_list.json (persisted)
 ```
+
+(a) keeps the panel in sync however the variable is edited; before it was
+added (2026-09-27), only (b) existed, so edits made through "Edit Banned
+artist List" never reached the panel and it kept skipping an artist that
+had been removed from the list. The sync is applied before the skip check
+on the same POST. It only runs while RP is the active source, which is the
+only time the list matters.
 
 Each line is optionally tagged with what kind of ban it is, so the skip
 banner can say exactly why:
@@ -261,6 +272,7 @@ panel/
 └── mac-scripts/         source that runs on the Mac inside KM macros
     ├── am_post.py               posts AM track fields to the panel
     ├── rp_to_panel.applescript  scrapes RP web player DOM, returns JSON
+    ├── rp_to_panel_post.sh     "RP to panel" POST step (adds banned_list to the payload)
     ├── rp_status.applescript    checks RP tab's play/pause state
     ├── rp_playpause_state.js    checks RP play/pause state for the Play-Pause macro
     ├── rp_pause.applescript    clicks #pause-button in the RP tab (Play-Pause macro's playing case)

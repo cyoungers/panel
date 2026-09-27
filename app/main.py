@@ -76,9 +76,14 @@ RP_SKIP_RATING_MAX = 4  # skip tracks previously rated this or lower
 
 # --- RP auto-skip: banned artists/titles + low-rating ---
 # Entries come from the "DND_RPBannedArtistList" Keyboard Maestro global
-# variable (one entry per line). A "Push RP Banned List" step in the user's
-# "ban artist/song" KM macro POSTs the raw text here every time it bans
-# something, so the panel always has a fresh copy without polling KM.
+# variable (one entry per line). Two ways it arrives, both carrying the raw
+# variable text:
+#   - "RP to panel" (every 5s while RP plays) includes it as a "banned_list"
+#     field on each /nowplaying POST. This is what keeps the panel in sync
+#     when the list is changed by a macro that doesn't push -- e.g. "Edit
+#     Banned artist List" or "RP Player Tracker notifiy".
+#   - The "Ban Artist or Song" macro POSTs it to /api/banned-list right
+#     after a ban, so the new entry takes effect immediately.
 #
 # Each line is optionally tagged with its kind so the skip banner can say
 # exactly what matched: "A|Nickelback" (artist) or "T|Free Bird" (track
@@ -123,6 +128,23 @@ def _save_banned_list(entries):
 
 
 _load_banned_list()
+
+
+def _parse_banned_text(raw):
+    return {p for p in (_parse_banned_line(l) for l in raw.splitlines()) if p}
+
+
+def _sync_banned_list(raw):
+    """Replace the banned set from the KM variable's raw text if it differs.
+    Returns True if anything changed."""
+    global _banned_entries
+    entries = _parse_banned_text(raw)
+    with _banned_lock:
+        if entries == _banned_entries:
+            return False
+        _banned_entries = entries
+    _save_banned_list(entries)
+    return True
 
 _skip_lock = threading.Lock()
 _last_skip_track = None  # (artist, title) normalized, last track we fired a skip for
@@ -246,6 +268,12 @@ def nowplaying():
             _state["description"] = data.get("description", "")
             _state["updated_at"] = time.time()
             snap = dict(_state)
+        # Sync before the skip check so this track is judged against the
+        # list as it is right now in KM.
+        if isinstance(data.get("banned_list"), str):
+            if _sync_banned_list(data["banned_list"]):
+                print("[rp-skip] banned list synced from /nowplaying (%d entries)"
+                      % len(_banned_entries), flush=True)
         _maybe_skip_track(snap.get("artist"), snap.get("title"), snap.get("rating"))
         return jsonify(ok=True, state=snap)
     with _lock:
@@ -257,16 +285,14 @@ def nowplaying():
 
 @app.route("/api/banned-list", methods=["GET", "POST", "OPTIONS"])
 def banned_list():
-    global _banned_entries, _last_skip_track
+    global _last_skip_track
     if request.method == "OPTIONS":
         return ("", 204)
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
-        raw = data.get("list", "")
-        entries = {p for p in (_parse_banned_line(l) for l in raw.splitlines()) if p}
+        _sync_banned_list(data.get("list", ""))
         with _banned_lock:
-            _banned_entries = entries
-        _save_banned_list(entries)
+            entries = _banned_entries
 
         # If this push just banned whatever's currently playing, the macro
         # that pushed it is presumably about to skip that track itself (this
