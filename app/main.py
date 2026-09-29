@@ -394,6 +394,11 @@ def cover_am():
     return resp
 
 
+@app.route("/cover-am-noart")
+def cover_am_noart():
+    return send_file(os.path.join(HERE, "am-noart.svg"), mimetype="image/svg+xml")
+
+
 @app.route("/cover-knkx")
 def cover_knkx():
     path = os.path.join(HERE, "knkx.svg")

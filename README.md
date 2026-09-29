@@ -49,6 +49,7 @@ Hue bridge / Lutron Smart Bridge / Aqara Hub M3
 - `POST /action/scene/<key>`  fire a Home scene (see Home scenes below)
 - `POST /action/<name>` generic stub (unused)
 - `GET  /cover-am`      current Apple Music artwork (written by the AM macro)
+- `GET  /cover-am-noart` placeholder cover for AM tracks with no artwork
 - `GET  /cover-knkx`    KNKX Art of Jazz cover graphic (static SVG)
 
 ## State fields
@@ -78,7 +79,9 @@ The "Select Music Feed" macro sets the global `DND_MusicSource` to `RP` / `AM` /
   and will need updating if RP redesigns again.
 - **Apple Music** — "AM to Panel": AppleScript reads the Music app, writes the
   track artwork to `app/cover-am.jpg`, and pipes fields to `~/ai/am_post.py`,
-  which posts them. `cover_url` points at `/cover-am?id=<persistentID>`.
+  which posts them. `cover_url` points at `/cover-am?id=<persistentID>`, or at
+  `/cover-am-noart` when the track has no artwork (detected because the macro
+  only sets `DND_AMLastTrackID` after a successful artwork write).
 - **KNKX Art of Jazz** — "KNKX to Panel": posts a static payload (SVG cover +
   description). No per-track data; play/pause hidden.
 
