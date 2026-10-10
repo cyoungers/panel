@@ -102,6 +102,28 @@
   .status-tile.dev-on { color: #d9dce2; background: rgba(95,174,140,.18); border-color: rgba(95,174,140,.55); }
   .status-tile.dev-on .tile-lbl { color: #9de0c0; }
   .status-tile.dev-on .tile-state { color: #9de0c0; }
+  .status-tile.link { color: #6fc2a4; cursor: pointer; transition: background .12s ease, transform .1s ease; }
+  .status-tile.link:active { transform: scale(.94); background: rgba(111,194,164,.18); }
+  .status-tile.link .tile-lbl { color: #c2c6cf; }
+  .status-tile.link .tile-state { color: #6fc2a4; font-weight: 500; }
+  #lrOverlay {
+    position: fixed; inset: 0; z-index: 20; background: #0e1014;
+    opacity: 0; pointer-events: none; transition: opacity .25s ease;
+  }
+  #lrOverlay.show { opacity: 1; pointer-events: auto; }
+  #lrOverlay iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #lrClose {
+    -webkit-tap-highlight-color: transparent; -webkit-appearance: none;
+    position: absolute; z-index: 1; top: 1.6vmin; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 1vmin;
+    padding: 1.2vmin 2.6vmin; border-radius: 999px;
+    background: rgba(12,12,16,.88); border: 1px solid rgba(255,255,255,.14);
+    color: #c2c6cf; font: inherit; font-size: 2vmin; letter-spacing: .04em; cursor: pointer;
+    box-shadow: 0 .6vmin 2vmin rgba(0,0,0,.5);
+  }
+  #lrClose:active { transform: translateX(-50%) scale(.94); }
+  #lrClose svg { width: 2.6vmin; height: 2.6vmin; stroke: currentColor; fill: none;
+                 stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   #skipBanner {
     position: absolute; top: 50%; left: 50%; z-index: 5;
     transform: translate(-50%, -50%) scale(.96);
@@ -128,14 +150,30 @@
     letter-spacing: .06em; text-transform: uppercase; color: #1a1408;
     background: #f2b705; padding: 0.7vmin 2vmin; border-radius: 999px;
   }
-  #idle {
-    position: absolute; inset: 0; z-index: 2; display: flex;
-    align-items: center; justify-content: center; flex-direction: column;
-    gap: 2vmin; background: #0a0a0c; color: var(--muted); transition: opacity .6s ease;
+  /* Night screen: covers everything (incl. scenebar) when now-playing posts stop.
+     Pure black with dim grey text so it doesn't light up the room. */
+  #night {
+    position: fixed; inset: 0; z-index: 10; background: #000;
+    transition: opacity 1.2s ease;
   }
-  #idle.hidden { opacity: 0; pointer-events: none; }
-  #idleTitle { font-size: 4vmin; letter-spacing: .15em; }
-  #clock { font-size: 9vmin; font-weight: 200; color: #34343c; }
+  #night.hidden { opacity: 0; pointer-events: none; }
+  #nightInner {
+    position: absolute; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; gap: 1.6vmin;
+    transition: left 4s ease, top 4s ease; white-space: nowrap;
+  }
+  #nightTime { font-size: 22vmin; font-weight: 200; line-height: 1; color: #3a3c44;
+               font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  #nightDate { font-size: 4vmin; font-weight: 300; letter-spacing: .12em;
+               text-transform: uppercase; color: #2e3036; }
+  #nightHome { margin-top: 2.4vmin; display: flex; flex-direction: column;
+               align-items: center; gap: 1.4vmin;
+               font-size: 2.6vmin; letter-spacing: .06em; color: #2a2c32; }
+  #nightHome .row { display: flex; gap: 3.2vmin; }
+  #nightHome .warn { color: #5a4416; }
+  #nightHome .on { color: #23443a; }
+  #nightHint { position: absolute; bottom: 2vmin; left: 0; right: 0; text-align: center;
+               font-size: 1.8vmin; letter-spacing: .1em; color: #18191c; }
   #scenebar {
     flex: 0 0 auto; z-index: 3;
     display: flex; align-items: stretch; justify-content: center; gap: 3vmin;
@@ -220,11 +258,23 @@
         <span class="tile-lbl">Bedroom</span>
         <span class="tile-state">—</span>
       </button>
+      <button class="status-tile link" id="lrOpen">
+        <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span class="tile-lbl">Living Room</span>
+        <span class="tile-state">Open ›</span>
+      </button>
     </div>
-    <div id="idle">
-      <div id="idleTitle">RADIO PARADISE</div>
-      <div id="clock"></div>
+  </div>
+  <div id="night">
+    <div id="nightInner" style="left:50%; top:50%">
+      <div id="nightTime"></div>
+      <div id="nightDate"></div>
+      <div id="nightHome"></div>
     </div>
+    <div id="nightHint">tap for controls</div>
+  </div>
+  <div id="lrOverlay">
+    <button id="lrClose"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back to Panel</button>
   </div>
   <div id="scenebar">
     <div class="scene-group">
@@ -266,7 +316,14 @@
   </div>
 <script>
   const POLL_MS = 3000;
-  const STALE_MS = 90 * 60 * 1000;   // beyond this, fall back to idle screen
+  // KM posts every 5s (RP) / 8s (AM) while logged in. If none arrive for this
+  // long, assume the feed is gone and switch to the dark night screen.
+  const STALE_S = 30;
+  // RP keeps posting while paused (playing:false), so also go dark once
+  // playback has been paused this long.
+  const PAUSED_NIGHT_MS = 15 * 1000;
+  let pausedSince = null;
+  const WAKE_MS = 45 * 1000;   // tap on night screen shows controls this long
   let lastCover = null;
 
   function setBg(url){
@@ -342,14 +399,12 @@
       lastSkipAt = s.last_skip.at;
       showSkipBanner(s.last_skip);
     }
-    const idle = document.getElementById('idle');
-    const ageMs = (s && s.updated_at) ? (Date.now() - s.updated_at * 1000) : Infinity;
-    const live = s && s.cover_url && ageMs < STALE_MS;
-    if(!live){
-      if(!lastCover) idle.classList.remove('hidden');  // Option C: keep last art if we had it
-      return;
-    }
-    idle.classList.add('hidden');
+    const live = s && s.cover_url && s.age !== null && s.age < STALE_S;
+    if(live && s.playing === false) pausedSince = pausedSince || Date.now();
+    else pausedSince = null;
+    const longPaused = pausedSince !== null && Date.now() - pausedSince >= PAUSED_NIGHT_MS;
+    setNight(!live || longPaused);
+    if(!live) return;
     if(s.cover_url !== lastCover){
       const img = document.getElementById('cover');
       img.style.opacity = 0;
@@ -387,10 +442,104 @@
     if(distKey !== lastDist){ renderChart(s.rating_dist); lastDist = distKey; }
   }
 
+  // --- Night screen ---
+  const night = document.getElementById('night');
+  let isNight = false, wakeUntil = 0, savedBrightness = null;
+
+  // Fully Kiosk JS interface (Settings > Advanced Web Settings > Enable
+  // JavaScript Interface). Without it, night mode is just the black page.
+  function setBacklight(dim){
+    if(!window.fully) return;
+    try {
+      if(dim){
+        if(savedBrightness === null) savedBrightness = fully.getScreenBrightness();
+        fully.setScreenBrightness(8);
+      } else if(savedBrightness !== null){
+        fully.setScreenBrightness(savedBrightness);
+        savedBrightness = null;
+      }
+    } catch(e){}
+  }
+
+  function applyNight(){
+    const show = isNight && Date.now() >= wakeUntil;
+    night.classList.toggle('hidden', !show);
+    setBacklight(show);
+  }
+
+  function setNight(on){
+    if(on && !isNight) lastCover = null;  // repaint art when the feed resumes
+    isNight = on;
+    if(!on) wakeUntil = 0;
+    applyNight();
+  }
+
+  night.addEventListener('click', () => {
+    wakeUntil = Date.now() + WAKE_MS;
+    applyNight();
+    setTimeout(applyNight, WAKE_MS + 50);
+  });
+
+  // Light group: on if any member is on; unknown if no member has reported.
+  function groupOn(keys){
+    const ds = keys.map(k => hkState[k]).filter(Boolean);
+    return ds.length ? ds.some(d => d.on) : null;
+  }
+
+  function shadesState(){
+    const ds = ['cover_lr','cover_ll','cover_rr','cover_rl'].map(k => hkState[k]).filter(Boolean);
+    if(!ds.length) return null;
+    const avg = ds.reduce((a, d) => a + (d.bri || 0), 0) / ds.length;
+    return avg >= 90 ? 'open' : avg <= 10 ? 'closed' : 'partly open';
+  }
+
+  function updateNightHome(){
+    const one = (key, fn) => { const d = hkState[key]; return fn(d ? d.on : null); };
+    const lit = (label, on) => on === null ? [label + ' \u2014', '']
+                             : on ? [label + ' on', 'on'] : [label + ' off', ''];
+    const shades = shadesState();
+    const rows = [
+      [
+        one('lock_front', on => on === null ? ['Door \u2014', ''] : on ? ['Door locked', ''] : ['Door unlocked', 'warn']),
+        one('garage',     on => on === null ? ['Garage \u2014', ''] : on ? ['Garage open', 'warn'] : ['Garage closed', '']),
+        one('charge',     on => on === null ? ['Car \u2014', ''] : on ? ['Car charging', 'on'] : ['Car not charging', '']),
+      ],
+      [
+        lit('Kitchen', groupOn(['lutron_4', 'lutron_3'])),
+        lit('Living room', groupOn(['hue_8', 'hue_15'])),
+        lit('Bedroom', groupOn(['bedroom'])),
+        shades === null ? ['Shades \u2014', ''] : ['Shades ' + shades, ''],
+      ],
+    ];
+    if(hkState.leak && hkState.leak.on) rows.unshift([['Water leak detected', 'warn']]);
+    document.getElementById('nightHome').replaceChildren(...rows.map(items => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.append(...items.map(([txt, cls]) => {
+        const span = document.createElement('span');
+        span.textContent = txt;
+        if(cls) span.className = cls;
+        return span;
+      }));
+      return row;
+    }));
+  }
+
+  let lastDriftMin = -1;
   function clock(){
     const d = new Date();
-    document.getElementById('clock').textContent =
-      d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    document.getElementById('nightTime').textContent =
+      d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}).replace(/\s?[AP]M$/i, '');
+    document.getElementById('nightDate').textContent =
+      d.toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'});
+    // Wander a little every few minutes so nothing sits in one spot all night.
+    const m = Math.floor(d.getTime() / 180000);
+    if(m !== lastDriftMin){
+      lastDriftMin = m;
+      const inner = document.getElementById('nightInner');
+      inner.style.left = (40 + Math.random() * 20) + '%';
+      inner.style.top  = (38 + Math.random() * 24) + '%';
+    }
   }
 
   // --- Confirmation chime for HA button presses ---
@@ -514,7 +663,7 @@
   }
 
   function updateRightbar() {
-    document.querySelectorAll('.status-tile').forEach(tile => {
+    document.querySelectorAll('.status-tile[data-key]').forEach(tile => {
       const key = tile.dataset.key;
       const d = hkState[key];
       tile.classList.remove('locked', 'unlocked', 'charging', 'dev-on');
@@ -547,12 +696,30 @@
     });
   });
 
+  // Living Room HA Controller (separate app on :8095) in a full-screen overlay,
+  // so Fully Kiosk never navigates away from the panel. Iframe loads on first open.
+  const LR_URL = 'http://' + location.hostname + ':8095/';
+  const lrOverlay = document.getElementById('lrOverlay');
+  document.getElementById('lrOpen').addEventListener('click', () => {
+    playChime();
+    if (!lrOverlay.querySelector('iframe')) {
+      const f = document.createElement('iframe');
+      f.src = LR_URL;
+      lrOverlay.appendChild(f);
+    }
+    lrOverlay.classList.add('show');
+  });
+  document.getElementById('lrClose').addEventListener('click', () => {
+    lrOverlay.classList.remove('show');
+  });
+
   async function pollHomeKit() {
     try {
       const s = await (await fetch('/api/homekit', {cache:'no-store'})).json();
       hkState = s;
       updateSceneButtons();
       updateRightbar();
+      updateNightHome();
     } catch(e) {}
   }
 
@@ -585,7 +752,7 @@
 
   poll(); setInterval(poll, POLL_MS);
   pollHomeKit(); setInterval(pollHomeKit, 3000);
-  clock(); setInterval(clock, 10000);
+  clock(); setInterval(clock, 5000);
 </script>
 </body>
 </html>

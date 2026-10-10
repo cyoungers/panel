@@ -41,6 +41,21 @@ def _poll_ha():
             states = {s["entity_id"]: s for s in r.json()}
             updates = {}
             for key, info in cfg.get("entities", {}).items():
+                # Push entity with an HA fallback (e.g. the front door lock):
+                # use HA's slower state only until the first push arrives.
+                if info.get("push") and info.get("fallback_entity"):
+                    s = states.get(info["fallback_entity"])
+                    with _hk_lock:
+                        have_push = key in _hk_state and not _hk_state[key].get("fallback")
+                    if s and not have_push:
+                        locked = s["state"] == "locked"
+                        updates[key] = {"on": locked, "name": info["name"], "fallback": True}
+                    continue
+                # Group of binary sensors (e.g. water leak): on if any is on.
+                if info.get("entities"):
+                    ss = [states[e] for e in info["entities"] if e in states]
+                    updates[key] = {"on": any(x["state"] == "on" for x in ss), "name": info["name"]}
+                    continue
                 if info.get("push") or not info.get("entity"):
                     continue
                 s = states.get(info["entity"])
@@ -66,6 +81,36 @@ def _poll_ha():
 
 
 threading.Thread(target=_poll_ha, daemon=True).start()
+
+# Push-only entities (lock_front, garage, charge) only change when a HomeKit
+# automation POSTs, so persist them -- otherwise a container restart leaves
+# them blank until the next lock/garage/charge event.
+PUSH_STATE_PATH = os.path.join(CREDS_DIR, "push_state.json")
+
+
+def _load_push_state():
+    try:
+        with open(PUSH_STATE_PATH) as f:
+            saved = json.load(f)
+        with _hk_lock:
+            _hk_state.update(saved)
+    except Exception:
+        pass
+
+
+def _save_push_state():
+    cfg = _load_ha_config() or {}
+    push_keys = {k for k, v in cfg.get("entities", {}).items() if v.get("push")}
+    with _hk_lock:
+        snap = {k: v for k, v in _hk_state.items() if k in push_keys}
+    try:
+        with open(PUSH_STATE_PATH, "w") as f:
+            json.dump(snap, f)
+    except Exception:
+        pass
+
+
+_load_push_state()
 
 # --- Home scene relay (panel buttons -> KBM Public Web trigger -> Shortcuts) ---
 KM_HOST = "192.168.0.110"   # Mac running Keyboard Maestro
@@ -280,6 +325,9 @@ def nowplaying():
         snap = dict(_state)
     with _skip_lock:
         snap["last_skip"] = _last_skip_event
+    # Seconds since the last POST, computed here so the panel's night-mode
+    # check doesn't depend on the tablet's clock agreeing with this server's.
+    snap["age"] = (time.time() - snap["updated_at"]) if snap["updated_at"] else None
     return jsonify(snap)
 
 
@@ -349,6 +397,7 @@ def push_status(key):
     on = False if raw in (False, 0, "false", "0", "off", "no") else bool(raw)
     with _hk_lock:
         _hk_state[key] = {"on": on, "name": info["name"]}
+    _save_push_state()
     return jsonify(ok=True, key=key, on=on)
 
 
