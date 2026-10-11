@@ -151,29 +151,96 @@
     background: #f2b705; padding: 0.7vmin 2vmin; border-radius: 999px;
   }
   /* Night screen: covers everything (incl. scenebar) when now-playing posts stop.
-     Pure black with dim grey text so it doesn't light up the room. */
+     Everything stays deliberately dim so it doesn't light up the room: a slow
+     aurora of deep colour, faint stars, and a gradient clock with a moon. */
   #night {
-    position: fixed; inset: 0; z-index: 10; background: #000;
-    transition: opacity 1.2s ease;
+    position: fixed; inset: 0; z-index: 10; background: #010103; overflow: hidden;
+    transition: opacity 1.4s ease;
   }
   #night.hidden { opacity: 0; pointer-events: none; }
+  #night.hidden * { animation-play-state: paused !important; }
+  .aurora { position: absolute; border-radius: 50%; will-change: transform; }
+  .aurora.a1 { width: 90vmax; height: 70vmax; left: -30vmax; top: -35vmax;
+    background: radial-gradient(closest-side, rgba(58,40,140,.30), rgba(58,40,140,0));
+    animation: drift1 95s ease-in-out infinite alternate; }
+  .aurora.a2 { width: 80vmax; height: 80vmax; right: -35vmax; bottom: -45vmax;
+    background: radial-gradient(closest-side, rgba(10,96,104,.24), rgba(10,96,104,0));
+    animation: drift2 120s ease-in-out infinite alternate; }
+  .aurora.a3 { width: 60vmax; height: 50vmax; left: 30vmax; top: 10vmax;
+    background: radial-gradient(closest-side, rgba(110,28,90,.16), rgba(110,28,90,0));
+    animation: drift3 140s ease-in-out infinite alternate; }
+  @keyframes drift1 { to { transform: translate(30vmax, 18vmax) scale(1.2); } }
+  @keyframes drift2 { to { transform: translate(-28vmax, -20vmax) scale(.85); } }
+  @keyframes drift3 { 0% { transform: translate(0,0) } 50% { transform: translate(-25vmax, 15vmax) scale(1.3) }
+                      100% { transform: translate(10vmax, -12vmax) scale(.9) } }
+  #nightStars { position: absolute; inset: 0; }
+  #nightStars i { position: absolute; border-radius: 50%; background: #b8c0ff;
+    opacity: 0; animation: twinkle ease-in-out infinite; }
+  @keyframes twinkle { 0%, 100% { opacity: .04; } 50% { opacity: var(--o, .3); } }
   #nightInner {
-    position: absolute; transform: translate(-50%, -50%);
-    display: flex; flex-direction: column; align-items: center; gap: 1.6vmin;
-    transition: left 4s ease, top 4s ease; white-space: nowrap;
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center;
+    transition: left 6s ease, top 6s ease; white-space: nowrap;
   }
-  #nightTime { font-size: 22vmin; font-weight: 200; line-height: 1; color: #3a3c44;
-               font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-  #nightDate { font-size: 4vmin; font-weight: 300; letter-spacing: .12em;
-               text-transform: uppercase; color: #2e3036; }
-  #nightHome { margin-top: 2.4vmin; display: flex; flex-direction: column;
-               align-items: center; gap: 1.4vmin;
-               font-size: 2.6vmin; letter-spacing: .06em; color: #2a2c32; }
-  #nightHome .row { display: flex; gap: 3.2vmin; }
-  #nightHome .warn { color: #5a4416; }
-  #nightHome .on { color: #23443a; }
-  #nightHint { position: absolute; bottom: 2vmin; left: 0; right: 0; text-align: center;
-               font-size: 1.8vmin; letter-spacing: .1em; color: #18191c; }
+  #nightGreet { display: flex; align-items: center; gap: 1.6vmin;
+    font-size: 2.4vmin; font-weight: 400; letter-spacing: .32em; text-transform: uppercase;
+    color: #3b3f5c; }
+  #nightMoon { width: 4.2vmin; height: 4.2vmin; filter: drop-shadow(0 0 1.2vmin rgba(150,160,230,.18)); }
+  #nightTime { font-size: 20vmin; font-weight: 100; line-height: 1; margin-top: .6vmin;
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+    background: linear-gradient(170deg, #6a6f96 10%, #3a3d5e 55%, #2a3550 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 3vmin rgba(90,100,200,.14)); }
+  #nightSweep { position: relative; width: 100%; height: 1px; margin: 8.4vmin 0 2vmin;
+    background: linear-gradient(90deg, transparent, #1d1f30 15%, #1d1f30 85%, transparent); }
+  #nightSweep b { position: absolute; inset: 0; animation: sweep 60s linear infinite; }
+  /* Seconds marker: a little espresso cup riding the line, steam curling up. */
+  #nightSweep .cup { position: absolute; left: 0; bottom: -.7vmin; width: 9vmin; height: 9vmin;
+    margin-left: -4.5vmin; filter: drop-shadow(0 0 1.4vmin rgba(214,160,100,.22)); }
+  #nightSweep .cup svg { width: 100%; height: 100%; overflow: visible; fill: none; stroke: #9a7c5e;
+    stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+  #nightSweep .cup .body { fill: #2a1a10; }
+  #nightSweep .cup .crema { fill: #7a5232; stroke: none; }
+  #nightSweep .cup .steam { stroke: #8a7a6a; stroke-width: 1.1; opacity: 0;
+    animation: steam 3.6s ease-out infinite; }
+  #nightSweep .cup .steam.s2 { animation-delay: 1.2s; }
+  #nightSweep .cup .steam.s3 { animation-delay: 2.4s; }
+  @keyframes steam { 0% { opacity: 0; transform: translateY(1px); }
+                     30% { opacity: .55; } 100% { opacity: 0; transform: translateY(-3.5px); } }
+  @keyframes sweep { from { transform: translateX(0); } to { transform: translateX(100%); } }
+  #nightDate { font-size: 3.2vmin; font-weight: 300; letter-spacing: .22em;
+    text-transform: uppercase; color: #343850; }
+  /* Status is the one thing read from across the room, so it's big and a
+     notch brighter than the rest. */
+  #nightHome { margin-top: 7vmin; display: flex; flex-direction: column;
+    align-items: center; gap: 1.6vmin; font-size: 3.6vmin; font-weight: 500;
+    letter-spacing: .02em; }
+  #nightHome .row { display: flex; gap: 1.6vmin; }
+  #nightHome .chip { display: flex; align-items: center; gap: 1.2vmin;
+    padding: 1vmin 2.2vmin 1vmin 1.8vmin; border-radius: 999px;
+    color: #6a7090; background: rgba(120,130,200,.05);
+    border: 1px solid rgba(120,130,200,.12); }
+  #nightHome .chip svg { width: 3.6vmin; height: 3.6vmin; fill: none; stroke: currentColor;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #nightHome .chip.on { color: #45a88e; border-color: rgba(69,168,142,.3);
+    background: rgba(69,168,142,.08); }
+  #nightHome .chip.warn { color: #d39a32; border-color: rgba(200,140,40,.28);
+    background: rgba(200,140,40,.07); animation: warnGlow 3.2s ease-in-out infinite; }
+  @keyframes warnGlow { 50% { box-shadow: 0 0 2.4vmin rgba(200,140,40,.18); } }
+  #nightLinks { position: absolute; bottom: 3vmin; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 1.6vmin; }
+  #nightLinks a { -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; gap: 1vmin; padding: 1.3vmin 2.2vmin 1.3vmin 1.8vmin;
+    border-radius: 999px; text-decoration: none; font-size: 2.8vmin; letter-spacing: .04em;
+    color: #59608a; background: rgba(120,130,200,.04); border: 1px solid rgba(120,130,200,.09);
+    transition: transform .1s ease, background .12s ease, color .12s ease; }
+  #nightLinks a:active { transform: scale(.94); background: rgba(120,130,200,.14); color: #8a90b8; }
+  #nightLinks svg { width: 3vmin; height: 3vmin; fill: none; stroke: currentColor;
+    stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  #nightHint { position: absolute; bottom: 5.2vmin; right: 3.6vmin;
+    font-size: 1.6vmin; letter-spacing: .4em; text-transform: uppercase; color: #1c1d28;
+    animation: hint 6s ease-in-out infinite; }
+  @keyframes hint { 50% { color: #2a2c3c; } }
   #scenebar {
     flex: 0 0 auto; z-index: 3;
     display: flex; align-items: stretch; justify-content: center; gap: 3vmin;
@@ -266,12 +333,25 @@
     </div>
   </div>
   <div id="night">
-    <div id="nightInner" style="left:50%; top:50%">
+    <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div>
+    <div id="nightStars"></div>
+    <div id="nightInner">
+      <div id="nightGreet"><span id="nightGreetText"></span><svg id="nightMoon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#141626"/><path id="nightMoonLit" fill="#8a90b8"/></svg><span id="nightMoonName"></span></div>
       <div id="nightTime"></div>
+      <div id="nightSweep"><b><span class="cup"><svg viewBox="0 0 24 24">
+        <path class="steam s1" d="M8.6 9c-.9-1.1.9-2.1 0-3.4"/>
+        <path class="steam s2" d="M11.2 8.6c-.9-1.1.9-2.1 0-3.4"/>
+        <path class="steam s3" d="M13.8 9c-.9-1.1.9-2.1 0-3.4"/>
+        <path class="body" d="M5 11.2h12.4v3.4a5.4 5.4 0 0 1-5.4 5.4h-1.6A5.4 5.4 0 0 1 5 14.6z"/>
+        <ellipse class="crema" cx="11.2" cy="11.9" rx="5.4" ry=".55"/>
+        <path d="M17.4 12.4h1.2a2.2 2.2 0 0 1 0 4.4h-1.6"/>
+        <path d="M2.8 21.6h17.4"/>
+      </svg></span></b></div>
       <div id="nightDate"></div>
       <div id="nightHome"></div>
     </div>
-    <div id="nightHint">tap for controls</div>
+    <nav id="nightLinks"></nav>
+    <div id="nightHint">tap to wake</div>
   </div>
   <div id="lrOverlay">
     <button id="lrClose"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back to Panel</button>
@@ -445,6 +525,10 @@
   // --- Night screen ---
   const night = document.getElementById('night');
   let isNight = false, wakeUntil = 0, savedBrightness = null;
+  // feedNight: driven by the now-playing poll. manualNight: someone asked for
+  // the night screen (?night=1, or the Living Room controller's link); it holds
+  // even while music plays, until the screen is tapped.
+  let feedNight = false, manualNight = /[?&]night=1\b/.test(location.search);
 
   // Fully Kiosk JS interface (Settings > Advanced Web Settings > Enable
   // JavaScript Interface). Without it, night mode is just the black page.
@@ -464,17 +548,31 @@
   function applyNight(){
     const show = isNight && Date.now() >= wakeUntil;
     night.classList.toggle('hidden', !show);
-    setBacklight(show);
+    // Full brightness while the Living Room overlay is up on top of the night screen.
+    setBacklight(show && !document.getElementById('lrOverlay').classList.contains('show'));
   }
 
   function setNight(on){
-    if(on && !isNight) lastCover = null;  // repaint art when the feed resumes
-    isNight = on;
-    if(!on) wakeUntil = 0;
+    feedNight = on;
+    const eff = feedNight || manualNight;
+    if(eff && !isNight) lastCover = null;  // repaint art when the feed resumes
+    isNight = eff;
+    if(!eff) wakeUntil = 0;
     applyNight();
   }
 
+  function enterNight(){
+    manualNight = true;
+    wakeUntil = 0;
+    setNight(feedNight);
+  }
+
   night.addEventListener('click', () => {
+    if(manualNight){
+      manualNight = false;
+      setNight(feedNight);
+      if(!isNight) return;
+    }
     wakeUntil = Date.now() + WAKE_MS;
     applyNight();
     setTimeout(applyNight, WAKE_MS + 50);
@@ -493,53 +591,147 @@
     return avg >= 90 ? 'open' : avg <= 10 ? 'closed' : 'partly open';
   }
 
+  const NIGHT_ICONS = {
+    lock:   '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+    unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>',
+    garage: '<path d="M3 10l9-6 9 6v11H3z"/><path d="M7 21v-8h10v8M7 16h10"/>',
+    car:    '<path d="M4 16v-3l1.8-4.2A2 2 0 0 1 7.6 7.5h8.8a2 2 0 0 1 1.8 1.3L20 13v3z"/><path d="M4 13h16"/><circle cx="7.5" cy="16.5" r="1.7"/><circle cx="16.5" cy="16.5" r="1.7"/>',
+    bulb:   '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+    shades: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M3 13h18"/>',
+    drop:   '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+  };
+
   function updateNightHome(){
     const one = (key, fn) => { const d = hkState[key]; return fn(d ? d.on : null); };
-    const lit = (label, on) => on === null ? [label + ' \u2014', '']
-                             : on ? [label + ' on', 'on'] : [label + ' off', ''];
+    const lit = (label, on) => on === null ? ['bulb', label + ' \u2014', '']
+                             : on ? ['bulb', label + ' on', 'on'] : ['bulb', label + ' off', ''];
     const shades = shadesState();
     const rows = [
       [
-        one('lock_front', on => on === null ? ['Door \u2014', ''] : on ? ['Door locked', ''] : ['Door unlocked', 'warn']),
-        one('garage',     on => on === null ? ['Garage \u2014', ''] : on ? ['Garage open', 'warn'] : ['Garage closed', '']),
-        one('charge',     on => on === null ? ['Car \u2014', ''] : on ? ['Car charging', 'on'] : ['Car not charging', '']),
+        one('lock_front', on => on === null ? ['lock', 'Door \u2014', ''] : on ? ['lock', 'Door locked', ''] : ['unlock', 'Door unlocked', 'warn']),
+        one('garage',     on => on === null ? ['garage', 'Garage \u2014', ''] : on ? ['garage', 'Garage open', 'warn'] : ['garage', 'Garage closed', '']),
+        one('charge',     on => on === null ? ['car', 'Car \u2014', ''] : on ? ['car', 'Car charging', 'on'] : ['car', 'Car not charging', '']),
       ],
       [
         lit('Kitchen', groupOn(['lutron_4', 'lutron_3'])),
         lit('Living room', groupOn(['hue_8', 'hue_15'])),
         lit('Bedroom', groupOn(['bedroom'])),
-        shades === null ? ['Shades \u2014', ''] : ['Shades ' + shades, ''],
+        ['shades', shades === null ? 'Shades \u2014' : 'Shades ' + shades, ''],
       ],
     ];
-    if(hkState.leak && hkState.leak.on) rows.unshift([['Water leak detected', 'warn']]);
+    if(hkState.leak && hkState.leak.on) rows.unshift([['drop', 'Water leak detected', 'warn']]);
     document.getElementById('nightHome').replaceChildren(...rows.map(items => {
       const row = document.createElement('div');
       row.className = 'row';
-      row.append(...items.map(([txt, cls]) => {
-        const span = document.createElement('span');
-        span.textContent = txt;
-        if(cls) span.className = cls;
-        return span;
+      row.append(...items.map(([icon, txt, cls]) => {
+        const chip = document.createElement('span');
+        chip.className = 'chip' + (cls ? ' ' + cls : '');
+        chip.innerHTML = '<svg viewBox="0 0 24 24">' + NIGHT_ICONS[icon] + '</svg><span></span>';
+        chip.lastChild.textContent = txt;
+        return chip;
       }));
       return row;
     }));
+    placeNight(false);
   }
+
+  // Living Room controller link along the bottom of the night screen. Tapping it
+  // doesn't wake to the music page; tapping anywhere else does.
+  const NIGHT_LINKS = [
+    {label: 'Living Room', open: () => document.getElementById('lrOpen').click(),
+     icon: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>'},
+  ];
+  document.getElementById('nightLinks').replaceChildren(...NIGHT_LINKS.map(l => {
+    const a = document.createElement('a');
+    a.innerHTML = '<svg viewBox="0 0 24 24">' + l.icon + '</svg><span></span>';
+    a.lastChild.textContent = l.label;
+    a.href = '#';
+    a.addEventListener('click', e => {
+      e.stopPropagation();
+      e.preventDefault();
+      l.open();
+      applyNight();
+    });
+    return a;
+  }));
+
+  // Moon phase from a known new moon (2000-01-06 18:14 UTC); 0 = new, .5 = full.
+  function moonPhase(d){
+    const days = (d.getTime() - Date.UTC(2000, 0, 6, 18, 14)) / 864e5;
+    const p = (days / 29.530588853) % 1;
+    return p < 0 ? p + 1 : p;
+  }
+  function moonName(p){
+    return p < .03 || p > .97 ? 'New moon' : p < .22 ? 'Waxing crescent'
+         : p < .28 ? 'First quarter' : p < .47 ? 'Waxing gibbous' : p < .53 ? 'Full moon'
+         : p < .72 ? 'Waning gibbous' : p < .78 ? 'Last quarter' : 'Waning crescent';
+  }
+  // Lit part: outer semicircle on the lit side plus an elliptical terminator.
+  function moonPath(p){
+    const rx = (10 * Math.abs(Math.cos(2 * Math.PI * p))).toFixed(2);
+    const wax = p < .5, crescent = p < .25 || p > .75;
+    const outer = wax ? 1 : 0, inner = wax === crescent ? 0 : 1;
+    return 'M12 2A10 10 0 0 ' + outer + ' 12 22A' + rx + ' 10 0 0 ' + inner + ' 12 2Z';
+  }
+  function greeting(h){
+    return h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon'
+         : h < 21 ? 'Good evening' : 'Good night';
+  }
+
+  // Faint twinkling stars, scattered once.
+  (function makeStars(){
+    const box = document.getElementById('nightStars');
+    for(let i = 0; i < 46; i++){
+      const st = document.createElement('i');
+      const sz = Math.random() < .85 ? 1 : 2;
+      st.style.cssText = 'left:' + (Math.random() * 100) + '%;top:' + (Math.random() * 100) + '%;' +
+        'width:' + sz + 'px;height:' + sz + 'px;--o:' + (.12 + Math.random() * .3).toFixed(2) + ';' +
+        'animation-duration:' + (3 + Math.random() * 6).toFixed(1) + 's;' +
+        'animation-delay:-' + (Math.random() * 9).toFixed(1) + 's';
+      box.appendChild(st);
+    }
+  })();
+  // Seconds sweep: start the 60s glide in phase with the real clock.
+  document.querySelector('#nightSweep b').style.animationDelay =
+    '-' + ((Date.now() % 60000) / 1000).toFixed(2) + 's';
 
   let lastDriftMin = -1;
   function clock(){
     const d = new Date();
     document.getElementById('nightTime').textContent =
       d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}).replace(/\s?[AP]M$/i, '');
+    const p = moonPhase(d);
     document.getElementById('nightDate').textContent =
       d.toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'});
+    document.getElementById('nightMoonName').textContent = moonName(p);
+    document.getElementById('nightMoonLit').setAttribute('d', moonPath(p));
+    document.getElementById('nightGreetText').textContent = greeting(d.getHours());
     // Wander a little every few minutes so nothing sits in one spot all night.
     const m = Math.floor(d.getTime() / 180000);
-    if(m !== lastDriftMin){
-      lastDriftMin = m;
-      const inner = document.getElementById('nightInner');
-      inner.style.left = (40 + Math.random() * 20) + '%';
-      inner.style.top  = (38 + Math.random() * 24) + '%';
-    }
+    if(m !== lastDriftMin){ lastDriftMin = m; placeNight(true); }
+  }
+
+  addEventListener('resize', () => placeNight(false));
+
+  // Position the night block within the free area, sized from the block itself so
+  // the big status chips never run off-screen or into the Living Room link.
+  // wander=false just pulls it back inside if its size changed (status rows filled in).
+  function placeNight(wander){
+    const inner = document.getElementById('nightInner');
+    const pad = innerHeight * .03;
+    const linksTop = document.getElementById('nightLinks').offsetTop || innerHeight;
+    const xr = Math.max(0, (innerWidth - inner.offsetWidth) / 2 - pad);
+    const bottomGap = innerHeight * .14;  // always leave a clear band above the Living Room link
+    const yMin = inner.offsetHeight / 2 + pad, yMax = Math.max(yMin, linksTop - bottomGap - inner.offsetHeight / 2);
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const x = wander ? innerWidth / 2 + (Math.random() * 2 - 1) * xr : clamp(parseFloat(inner.style.left) || innerWidth / 2, innerWidth / 2 - xr, innerWidth / 2 + xr);
+    const y = wander ? yMin + Math.random() * (yMax - yMin) : clamp(parseFloat(inner.style.top) || innerHeight / 2, yMin, yMax);
+    // Only the periodic wander glides; size corrections snap so the block never
+    // drifts in from off-screen.
+    inner.style.transition = wander ? '' : 'none';
+    inner.style.left = x + 'px';
+    inner.style.top = y + 'px';
+    if(!wander){ void inner.offsetWidth; inner.style.transition = ''; }
   }
 
   // --- Confirmation chime for HA button presses ---
@@ -711,6 +903,13 @@
   });
   document.getElementById('lrClose').addEventListener('click', () => {
     lrOverlay.classList.remove('show');
+    applyNight();
+  });
+  // The controller's "Night Screen" link asks us to go dark instead of navigating.
+  window.addEventListener('message', e => {
+    if(e.origin !== new URL(LR_URL).origin || !e.data || e.data.type !== 'panel:night') return;
+    lrOverlay.classList.remove('show');
+    enterNight();
   });
 
   async function pollHomeKit() {
