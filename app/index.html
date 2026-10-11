@@ -191,7 +191,7 @@
     background: linear-gradient(170deg, #6a6f96 10%, #3a3d5e 55%, #2a3550 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 0 3vmin rgba(90,100,200,.14)); }
-  #nightSweep { position: relative; width: 100%; height: 1px; margin: 8.4vmin 0 2vmin;
+  #nightSweep { position: relative; width: 100%; height: 1px; margin: 8.4vmin 0 0;
     background: linear-gradient(90deg, transparent, #1d1f30 15%, #1d1f30 85%, transparent); }
   #nightSweep b { position: absolute; inset: 0; animation: sweep 60s linear infinite; }
   /* Seconds marker: a little espresso cup riding the line, steam curling up. */
@@ -208,11 +208,11 @@
   @keyframes steam { 0% { opacity: 0; transform: translateY(1px); }
                      30% { opacity: .55; } 100% { opacity: 0; transform: translateY(-3.5px); } }
   @keyframes sweep { from { transform: translateX(0); } to { transform: translateX(100%); } }
-  #nightDate { font-size: 3.2vmin; font-weight: 300; letter-spacing: .22em;
+  #nightDate { margin-top: 1.2vmin; font-size: 3.2vmin; font-weight: 300; letter-spacing: .22em;
     text-transform: uppercase; color: #343850; }
   /* Status is the one thing read from across the room, so it's big and a
      notch brighter than the rest. */
-  #nightHome { margin-top: 7vmin; display: flex; flex-direction: column;
+  #nightHome { margin-top: 6vmin; display: flex; flex-direction: column;
     align-items: center; gap: 1.6vmin; font-size: 3.6vmin; font-weight: 500;
     letter-spacing: .02em; }
   #nightHome .row { display: flex; gap: 1.6vmin; }
@@ -338,6 +338,7 @@
     <div id="nightInner">
       <div id="nightGreet"><span id="nightGreetText"></span><svg id="nightMoon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#141626"/><path id="nightMoonLit" fill="#8a90b8"/></svg><span id="nightMoonName"></span></div>
       <div id="nightTime"></div>
+      <div id="nightDate"></div>
       <div id="nightSweep"><b><span class="cup"><svg viewBox="0 0 24 24">
         <path class="steam s1" d="M8.6 9c-.9-1.1.9-2.1 0-3.4"/>
         <path class="steam s2" d="M11.2 8.6c-.9-1.1.9-2.1 0-3.4"/>
@@ -347,7 +348,6 @@
         <path d="M17.4 12.4h1.2a2.2 2.2 0 0 1 0 4.4h-1.6"/>
         <path d="M2.8 21.6h17.4"/>
       </svg></span></b></div>
-      <div id="nightDate"></div>
       <div id="nightHome"></div>
     </div>
     <nav id="nightLinks"></nav>
