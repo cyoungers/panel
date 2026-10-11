@@ -404,6 +404,8 @@
   const PAUSED_NIGHT_MS = 15 * 1000;
   let pausedSince = null;
   const WAKE_MS = 45 * 1000;   // tap on night screen shows controls this long
+  // With music stopped, an untouched Living Room overlay closes back to night after this long.
+  const LR_IDLE_MS = 2 * 60 * 1000;
   let lastCover = null;
 
   function setBg(url){
@@ -553,6 +555,8 @@
   }
 
   function setNight(on){
+    // Music just started while the Living Room overlay is up: back to now playing.
+    if(feedNight && !on) document.getElementById('lrOverlay').classList.remove('show');
     feedNight = on;
     const eff = feedNight || manualNight;
     if(eff && !isNight) lastCover = null;  // repaint art when the feed resumes
@@ -900,17 +904,31 @@
       lrOverlay.appendChild(f);
     }
     lrOverlay.classList.add('show');
+    lrIdleSince = Date.now();
   });
   document.getElementById('lrClose').addEventListener('click', () => {
     lrOverlay.classList.remove('show');
     applyNight();
   });
-  // The controller's "Night Screen" link asks us to go dark instead of navigating.
+  // The controller's "Night Screen" link asks us to go dark instead of navigating;
+  // it also pings panel:activity on touches so we know it's in use.
   window.addEventListener('message', e => {
-    if(e.origin !== new URL(LR_URL).origin || !e.data || e.data.type !== 'panel:night') return;
+    if(e.origin !== new URL(LR_URL).origin || !e.data) return;
+    if(e.data.type === 'panel:activity'){ lrIdleSince = Date.now(); return; }
+    if(e.data.type !== 'panel:night') return;
     lrOverlay.classList.remove('show');
     enterNight();
   });
+  // Music stopped and nobody has touched the overlay for LR_IDLE_MS: back to dark.
+  // The idle clock only starts once the music has stopped.
+  let lrIdleSince = Date.now();
+  setInterval(() => {
+    if(!lrOverlay.classList.contains('show') || !feedNight){ lrIdleSince = Date.now(); return; }
+    if(Date.now() - lrIdleSince < LR_IDLE_MS) return;
+    lrOverlay.classList.remove('show');
+    wakeUntil = 0;
+    applyNight();
+  }, 5000);
 
   async function pollHomeKit() {
     try {
