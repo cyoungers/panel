@@ -227,20 +227,14 @@
   #nightHome .chip.warn { color: #d39a32; border-color: rgba(200,140,40,.28);
     background: rgba(200,140,40,.07); animation: warnGlow 3.2s ease-in-out infinite; }
   @keyframes warnGlow { 50% { box-shadow: 0 0 2.4vmin rgba(200,140,40,.18); } }
-  #nightLinks { position: absolute; bottom: 3vmin; left: 0; right: 0;
-    display: flex; justify-content: center; gap: 1.6vmin; }
-  #nightLinks a { -webkit-tap-highlight-color: transparent;
-    display: flex; align-items: center; gap: 1vmin; padding: 1.3vmin 2.2vmin 1.3vmin 1.8vmin;
-    border-radius: 999px; text-decoration: none; font-size: 2.8vmin; letter-spacing: .04em;
-    color: #59608a; background: rgba(120,130,200,.04); border: 1px solid rgba(120,130,200,.09);
-    transition: transform .1s ease, background .12s ease, color .12s ease; }
-  #nightLinks a:active { transform: scale(.94); background: rgba(120,130,200,.14); color: #8a90b8; }
-  #nightLinks svg { width: 3vmin; height: 3vmin; fill: none; stroke: currentColor;
+  #nightPrompt { position: absolute; bottom: 3vmin; left: 0; right: 0;
+    display: flex; justify-content: center; }
+  #nightPrompt span { display: flex; align-items: center; gap: 1vmin;
+    padding: 1.3vmin 2.2vmin 1.3vmin 1.8vmin; border-radius: 999px;
+    font-size: 2.8vmin; letter-spacing: .04em;
+    color: #59608a; background: rgba(120,130,200,.04); border: 1px solid rgba(120,130,200,.09); }
+  #nightPrompt svg { width: 3vmin; height: 3vmin; fill: none; stroke: currentColor;
     stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-  #nightHint { position: absolute; bottom: 5.2vmin; right: 3.6vmin;
-    font-size: 1.6vmin; letter-spacing: .4em; text-transform: uppercase; color: #1c1d28;
-    animation: hint 6s ease-in-out infinite; }
-  @keyframes hint { 50% { color: #2a2c3c; } }
   #scenebar {
     flex: 0 0 auto; z-index: 3;
     display: flex; align-items: stretch; justify-content: center; gap: 3vmin;
@@ -350,8 +344,7 @@
       </svg></span></b></div>
       <div id="nightHome"></div>
     </div>
-    <nav id="nightLinks"></nav>
-    <div id="nightHint">tap to wake</div>
+    <div id="nightPrompt"><span><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Tap for home controls</span></div>
   </div>
   <div id="lrOverlay">
     <button id="lrClose"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back to Panel</button>
@@ -403,7 +396,6 @@
   // playback has been paused this long.
   const PAUSED_NIGHT_MS = 15 * 1000;
   let pausedSince = null;
-  const WAKE_MS = 45 * 1000;   // tap on night screen shows controls this long
   // With music stopped, an untouched Living Room overlay closes back to night after this long.
   const LR_IDLE_MS = 2 * 60 * 1000;
   let lastCover = null;
@@ -526,7 +518,7 @@
 
   // --- Night screen ---
   const night = document.getElementById('night');
-  let isNight = false, wakeUntil = 0, savedBrightness = null;
+  let isNight = false, savedBrightness = null;
   // feedNight: driven by the now-playing poll. manualNight: someone asked for
   // the night screen (?night=1, or the Living Room controller's link); it holds
   // even while music plays, until the screen is tapped.
@@ -548,7 +540,7 @@
   }
 
   function applyNight(){
-    const show = isNight && Date.now() >= wakeUntil;
+    const show = isNight;
     night.classList.toggle('hidden', !show);
     // Full brightness while the Living Room overlay is up on top of the night screen.
     setBacklight(show && !document.getElementById('lrOverlay').classList.contains('show'));
@@ -561,25 +553,23 @@
     const eff = feedNight || manualNight;
     if(eff && !isNight) lastCover = null;  // repaint art when the feed resumes
     isNight = eff;
-    if(!eff) wakeUntil = 0;
     applyNight();
   }
 
   function enterNight(){
     manualNight = true;
-    wakeUntil = 0;
     setNight(feedNight);
   }
 
+  // Tap: music playing → now playing; music stopped → Living Room controller.
   night.addEventListener('click', () => {
     if(manualNight){
       manualNight = false;
       setNight(feedNight);
       if(!isNight) return;
     }
-    wakeUntil = Date.now() + WAKE_MS;
+    document.getElementById('lrOpen').click();
     applyNight();
-    setTimeout(applyNight, WAKE_MS + 50);
   });
 
   // Light group: on if any member is on; unknown if no member has reported.
@@ -638,26 +628,6 @@
     }));
     placeNight(false);
   }
-
-  // Living Room controller link along the bottom of the night screen. Tapping it
-  // doesn't wake to the music page; tapping anywhere else does.
-  const NIGHT_LINKS = [
-    {label: 'Living Room', open: () => document.getElementById('lrOpen').click(),
-     icon: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>'},
-  ];
-  document.getElementById('nightLinks').replaceChildren(...NIGHT_LINKS.map(l => {
-    const a = document.createElement('a');
-    a.innerHTML = '<svg viewBox="0 0 24 24">' + l.icon + '</svg><span></span>';
-    a.lastChild.textContent = l.label;
-    a.href = '#';
-    a.addEventListener('click', e => {
-      e.stopPropagation();
-      e.preventDefault();
-      l.open();
-      applyNight();
-    });
-    return a;
-  }));
 
   // Moon phase from a known new moon (2000-01-06 18:14 UTC); 0 = new, .5 = full.
   function moonPhase(d){
@@ -723,7 +693,7 @@
   function placeNight(wander){
     const inner = document.getElementById('nightInner');
     const pad = innerHeight * .03;
-    const linksTop = document.getElementById('nightLinks').offsetTop || innerHeight;
+    const linksTop = document.getElementById('nightPrompt').offsetTop || innerHeight;
     const xr = Math.max(0, (innerWidth - inner.offsetWidth) / 2 - pad);
     const bottomGap = innerHeight * .14;  // always leave a clear band above the Living Room link
     const yMin = inner.offsetHeight / 2 + pad, yMax = Math.max(yMin, linksTop - bottomGap - inner.offsetHeight / 2);
@@ -894,7 +864,8 @@
 
   // Living Room HA Controller (separate app on :8095) in a full-screen overlay,
   // so Fully Kiosk never navigates away from the panel. Iframe loads on first open.
-  const LR_URL = 'http://' + location.hostname + ':8095/';
+  // ?v= changes the URL so the tablet drops a stale cached copy of the controller.
+  const LR_URL = 'http://' + location.hostname + ':8095/?v=3';
   const lrOverlay = document.getElementById('lrOverlay');
   document.getElementById('lrOpen').addEventListener('click', () => {
     playChime();
@@ -926,7 +897,6 @@
     if(!lrOverlay.classList.contains('show') || !feedNight){ lrIdleSince = Date.now(); return; }
     if(Date.now() - lrIdleSince < LR_IDLE_MS) return;
     lrOverlay.classList.remove('show');
-    wakeUntil = 0;
     applyNight();
   }, 5000);
 

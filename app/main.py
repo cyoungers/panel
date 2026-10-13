@@ -250,7 +250,7 @@ def _maybe_skip_track(artist, title, rating):
 
 # button key -> Shortcut name (allowlist; nothing else can be triggered)
 SCENES = {
-    "kitchen":        "Panel Kitchen Lights",
+    "kitchen":        "Panel Kitchen Lights On",
     "kitchen_off":    "Panel Kitchen Off",
     "relax":          "Panel Relax",
     "meditate":       "Panel Meditate",
