@@ -865,7 +865,8 @@
   // Living Room HA Controller (separate app on :8095) in a full-screen overlay,
   // so Fully Kiosk never navigates away from the panel. Iframe loads on first open.
   // ?v= changes the URL so the tablet drops a stale cached copy of the controller.
-  const LR_URL = 'http://' + location.hostname + ':8095/?v=3';
+  // panel=1 tells the controller it's in the kitchen panel (Night Screen link only).
+  const LR_URL = 'http://' + location.hostname + ':8095/?panel=1&v=4';
   const lrOverlay = document.getElementById('lrOverlay');
   document.getElementById('lrOpen').addEventListener('click', () => {
     playChime();
