@@ -696,8 +696,8 @@
     document.getElementById('nightMoonName').textContent = moonName(p);
     document.getElementById('nightMoonLit').setAttribute('d', moonPath(p));
     document.getElementById('nightGreetText').textContent = greeting(d.getHours());
-    // Wander a little every few minutes so nothing sits in one spot all night.
-    const m = Math.floor(d.getTime() / 180000);
+    // Nudge position every 15 minutes so nothing sits in exactly one spot all night.
+    const m = Math.floor(d.getTime() / 900000);
     if(m !== lastDriftMin){ lastDriftMin = m; placeNight(true); }
   }
 
@@ -714,8 +714,11 @@
     const bottomGap = innerHeight * .14;  // always leave a clear band above the Living Room link
     const yMin = inner.offsetHeight / 2 + pad, yMax = Math.max(yMin, linksTop - bottomGap - inner.offsetHeight / 2);
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-    const x = wander ? innerWidth / 2 + (Math.random() * 2 - 1) * xr : clamp(parseFloat(inner.style.left) || innerWidth / 2, innerWidth / 2 - xr, innerWidth / 2 + xr);
-    const y = wander ? yMin + Math.random() * (yMax - yMin) : clamp(parseFloat(inner.style.top) || innerHeight / 2, yMin, yMax);
+    // Wander only a small distance around the centered spot so it still looks centered.
+    const nudge = Math.min(innerWidth, innerHeight) * .025;
+    const yMid = (yMin + yMax) / 2;
+    const x = clamp(wander ? innerWidth / 2 + (Math.random() * 2 - 1) * nudge : parseFloat(inner.style.left) || innerWidth / 2, innerWidth / 2 - xr, innerWidth / 2 + xr);
+    const y = clamp(wander ? yMid + (Math.random() * 2 - 1) * nudge : parseFloat(inner.style.top) || yMid, yMin, yMax);
     // Only the periodic wander glides; size corrections snap so the block never
     // drifts in from off-screen.
     inner.style.transition = wander ? '' : 'none';
