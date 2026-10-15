@@ -111,6 +111,7 @@ KM_HOST = "192.168.0.110"   # Mac running Keyboard Maestro
 KM_PORT = 4490
 KM_MACRO = "DA3D7EF3-3CC9-428F-9445-8B92744FD32E"  # "Set Home Scene" macro UID
 KM_SKIP_MACRO = "144A8A9E-ABF0-440F-B843-2C497A19C59B"  # "Skip RP Track" macro UID
+KM_OPEN_SOURCE_MACRO = "D5522225-23B8-4AD6-9EBA-27F4B28566FB"  # "Panel - Open Music Source" macro UID
 RP_SKIP_RATING_MAX = 4  # skip tracks previously rated this or lower
 
 # --- RP auto-skip: banned artists/titles + low-rating ---
@@ -372,6 +373,20 @@ def action_scene(key):
     except Exception as e:
         return jsonify(ok=False, error=str(e), key=key), 502
     return jsonify(ok=True, key=key, shortcut=shortcut)
+
+
+@app.route("/action/music/open", methods=["POST", "OPTIONS"])
+def action_music_open():
+    """Bring the current music source to the front on the Mac (RP Safari tab,
+    Music app, or the KNKX site); the macro picks it from DND_MusicSource."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    url = "http://%s:%d/action.html?macro=%s" % (KM_HOST, KM_PORT, KM_OPEN_SOURCE_MACRO)
+    try:
+        urllib.request.urlopen(url, timeout=4)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 502
+    return jsonify(ok=True)
 
 
 @app.route("/api/push/<key>", methods=["POST", "OPTIONS"])

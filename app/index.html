@@ -36,6 +36,9 @@
     box-shadow: 0 1vmin 4vmin rgba(0,0,0,.6);
     transition: opacity .5s ease; background: #1a1a1f;
   }
+  #coverWrap, #info { -webkit-tap-highlight-color: transparent; cursor: pointer; }
+  #stage.opening #cover { transform: scale(.97); }
+  #cover { transition: opacity .5s ease, transform .15s ease; }
   #info {
     flex: 1 1 auto; min-width: 0; height: 100%;
     display: flex; flex-direction: column; padding: 2vmin 1vmin;
@@ -874,6 +877,21 @@
       fetch('/action/ha/' + key + '/' + service, {method:'POST'}).catch(()=>{});
     });
   });
+
+  // Tapping the music area brings the current source to the front on the Mac
+  // (RP tab in Safari, the Music app, or the KNKX site) via a KM macro.
+  let lastOpenAt = 0;
+  function openMusicSource(){
+    if (Date.now() - lastOpenAt < 2000) return;
+    lastOpenAt = Date.now();
+    playChime();
+    const stage = document.getElementById('stage');
+    stage.classList.add('opening');
+    setTimeout(() => stage.classList.remove('opening'), 180);
+    fetch('/action/music/open', {method:'POST'}).catch(()=>{});
+  }
+  ['coverWrap', 'info'].forEach(id =>
+    document.getElementById(id).addEventListener('click', openMusicSource));
 
   // Living Room HA Controller (separate app on :8095) in a full-screen overlay,
   // so Fully Kiosk never navigates away from the panel. Iframe loads on first open.

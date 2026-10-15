@@ -47,6 +47,11 @@ Hue bridge / Lutron Smart Bridge / Aqara Hub M3
 - `GET  /api/banned-list`   current RP banned-list entries (debug/inspection)
 - `POST /api/banned-list`   replace the RP banned-list entries (see RP auto-skip below)
 - `POST /action/scene/<key>`  fire a Home scene (see Home scenes below)
+- `POST /action/music/open`  bring the current music source to the front on the Mac
+  (tap on cover/info area). Fires KM "Panel - Open Music Source" (Public Web,
+  Home::Remote Triggers), which reads `DND_MusicSource`: RP -> Safari RP tab,
+  AM -> Music app, KNKX -> knkx.org in Safari. Script mirrored at
+  `mac-scripts/panel_open_source.applescript`.
 - `POST /action/<name>` generic stub (unused)
 - `GET  /cover-am`      current Apple Music artwork (written by the AM macro)
 - `GET  /cover-am-noart` placeholder cover for AM tracks with no artwork
