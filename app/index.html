@@ -226,6 +226,11 @@
     background: rgba(69,168,142,.08); }
   #nightHome .chip.warn { color: #d39a32; border-color: rgba(200,140,40,.28);
     background: rgba(200,140,40,.07); animation: warnGlow 3.2s ease-in-out infinite; }
+  #nightHome .chip.good { color: #4fb86a; border-color: rgba(79,184,106,.32);
+    background: rgba(79,184,106,.08); }
+  #nightHome .chip.bad { color: #e0574f; border-color: rgba(224,87,79,.38);
+    background: rgba(224,87,79,.09); animation: badGlow 3.2s ease-in-out infinite; }
+  @keyframes badGlow { 50% { box-shadow: 0 0 2.4vmin rgba(224,87,79,.22); } }
   @keyframes warnGlow { 50% { box-shadow: 0 0 2.4vmin rgba(200,140,40,.18); } }
   #nightPrompt { position: absolute; bottom: 3vmin; left: 0; right: 0;
     display: flex; justify-content: center; }
@@ -572,6 +577,14 @@
     applyNight();
   });
 
+  // The "home controls" pill always opens the Living Room controller, even when
+  // music is playing; closing it returns to whichever screen was showing.
+  document.querySelector('#nightPrompt span').addEventListener('click', e => {
+    e.stopPropagation();
+    document.getElementById('lrOpen').click();
+    applyNight();
+  });
+
   // Light group: on if any member is on; unknown if no member has reported.
   function groupOn(keys){
     const ds = keys.map(k => hkState[k]).filter(Boolean);
@@ -602,9 +615,9 @@
     const shades = shadesState();
     const rows = [
       [
-        one('lock_front', on => on === null ? ['lock', 'Door \u2014', ''] : on ? ['lock', 'Door locked', ''] : ['unlock', 'Door unlocked', 'warn']),
-        one('garage',     on => on === null ? ['garage', 'Garage \u2014', ''] : on ? ['garage', 'Garage open', 'warn'] : ['garage', 'Garage closed', '']),
-        one('charge',     on => on === null ? ['car', 'Car \u2014', ''] : on ? ['car', 'Car charging', 'on'] : ['car', 'Car not charging', '']),
+        one('lock_front', on => on === null ? ['lock', 'Door \u2014', ''] : on ? ['lock', 'Door locked', 'good'] : ['unlock', 'Door unlocked', 'bad']),
+        one('garage',     on => on === null ? ['garage', 'Garage \u2014', ''] : on ? ['garage', 'Garage open', 'bad'] : ['garage', 'Garage closed', 'good']),
+        one('charge',     on => on === null ? ['car', 'Car \u2014', ''] : on ? ['car', 'Car charging', 'good'] : ['car', 'Car not charging', 'bad']),
       ],
       [
         lit('Kitchen', groupOn(['lutron_4', 'lutron_3'])),
@@ -891,11 +904,11 @@
     lrOverlay.classList.remove('show');
     enterNight();
   });
-  // Music stopped and nobody has touched the overlay for LR_IDLE_MS: back to dark.
-  // The idle clock only starts once the music has stopped.
+  // Night screen behind the overlay and nobody has touched it for LR_IDLE_MS:
+  // back to dark. The idle clock only runs while the night screen is up.
   let lrIdleSince = Date.now();
   setInterval(() => {
-    if(!lrOverlay.classList.contains('show') || !feedNight){ lrIdleSince = Date.now(); return; }
+    if(!lrOverlay.classList.contains('show') || !(feedNight || manualNight)){ lrIdleSince = Date.now(); return; }
     if(Date.now() - lrIdleSince < LR_IDLE_MS) return;
     lrOverlay.classList.remove('show');
     applyNight();
