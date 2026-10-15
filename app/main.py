@@ -15,6 +15,7 @@ CREDS_DIR = os.environ.get("CREDS_DIR", "/creds")
 # --- Home Assistant state poller ---
 _hk_lock = threading.Lock()
 _hk_state = {}  # key -> {on, bri, name}
+_reported_unknown = set()  # logged once per change, not every 5 s poll
 
 
 def _load_ha_config():
@@ -38,19 +39,26 @@ def _poll_ha():
                 "Content-Type": "application/json",
             }
             r = requests.get(f"{cfg['url']}/api/states", headers=headers, timeout=5)
-            states = {s["entity_id"]: s for s in r.json()}
-            updates = {}
+            r.raise_for_status()
+            # Missing or unavailable entities count as unknown: the page shows "—" for keys with no
+            # state, rather than the last value seen (a re-paired sensor gets a new entity ID).
+            states = {s["entity_id"]: s for s in r.json() if s["state"] not in ("unavailable", "unknown")}
+            updates, unknown = {}, set()
             for key, info in cfg.get("entities", {}).items():
                 # Group of binary sensors (e.g. water leak): on if any is on.
                 if info.get("entities"):
                     ss = [states[e] for e in info["entities"] if e in states]
-                    updates[key] = {"on": any(x["state"] == "on" for x in ss), "name": info["name"]}
+                    if ss:
+                        updates[key] = {"on": any(x["state"] == "on" for x in ss), "name": info["name"]}
+                    else:
+                        unknown.add(key)
                     continue
                 # No HA entity -> push-only (state comes from /api/push).
                 if not info.get("entity"):
                     continue
                 s = states.get(info["entity"])
                 if not s:
+                    unknown.add(key)
                     continue
                 attrs = s.get("attributes", {})
                 if info["entity"].startswith("cover."):
@@ -68,6 +76,14 @@ def _poll_ha():
                     updates[key] = {"on": on, "bri": bri, "name": info["name"]}
             with _hk_lock:
                 _hk_state.update(updates)
+                for key in unknown:
+                    _hk_state.pop(key, None)
+            if unknown != _reported_unknown:
+                if unknown:
+                    print("HA entities missing or unavailable: " + ", ".join(
+                        sorted(cfg["entities"][k].get("entity") or k for k in unknown)), flush=True)
+                _reported_unknown.clear()
+                _reported_unknown.update(unknown)
         except Exception:
             pass
         time.sleep(5)
