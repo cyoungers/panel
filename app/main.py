@@ -41,22 +41,13 @@ def _poll_ha():
             states = {s["entity_id"]: s for s in r.json()}
             updates = {}
             for key, info in cfg.get("entities", {}).items():
-                # Push entity with an HA fallback (e.g. the front door lock):
-                # use HA's slower state only until the first push arrives.
-                if info.get("push") and info.get("fallback_entity"):
-                    s = states.get(info["fallback_entity"])
-                    with _hk_lock:
-                        have_push = key in _hk_state and not _hk_state[key].get("fallback")
-                    if s and not have_push:
-                        locked = s["state"] == "locked"
-                        updates[key] = {"on": locked, "name": info["name"], "fallback": True}
-                    continue
                 # Group of binary sensors (e.g. water leak): on if any is on.
                 if info.get("entities"):
                     ss = [states[e] for e in info["entities"] if e in states]
                     updates[key] = {"on": any(x["state"] == "on" for x in ss), "name": info["name"]}
                     continue
-                if info.get("push") or not info.get("entity"):
+                # No HA entity -> push-only (state comes from /api/push).
+                if not info.get("entity"):
                     continue
                 s = states.get(info["entity"])
                 if not s:
@@ -70,6 +61,8 @@ def _poll_ha():
                     updates[key] = {"on": locked, "locked": locked, "name": info["name"]}
                 else:
                     on = s["state"] == "on"
+                    if info.get("invert"):
+                        on = not on
                     # HA brightness is 0-255; keep as-is for comparison with Hue scale
                     bri = attrs.get("brightness")
                     updates[key] = {"on": on, "bri": bri, "name": info["name"]}
@@ -82,7 +75,7 @@ def _poll_ha():
 
 threading.Thread(target=_poll_ha, daemon=True).start()
 
-# Push-only entities (lock_front, garage, charge) only change when a HomeKit
+# Push-only entities (no HA "entity" in ha.json) only change when a HomeKit
 # automation POSTs, so persist them -- otherwise a container restart leaves
 # them blank until the next lock/garage/charge event.
 PUSH_STATE_PATH = os.path.join(CREDS_DIR, "push_state.json")
@@ -100,7 +93,8 @@ def _load_push_state():
 
 def _save_push_state():
     cfg = _load_ha_config() or {}
-    push_keys = {k for k, v in cfg.get("entities", {}).items() if v.get("push")}
+    push_keys = {k for k, v in cfg.get("entities", {}).items()
+                 if v.get("push") and not v.get("entity")}
     with _hk_lock:
         snap = {k: v for k, v in _hk_state.items() if k in push_keys}
     try:
