@@ -22,7 +22,15 @@ end showSafariTab
 tell application "Keyboard Maestro Engine" to set src to getvariable "DND_MusicSource"
 
 if src is "AM" then
-	tell application "Music" to activate
+	tell application "Music"
+		-- activate alone leaves a minimized (collapsed) window in the Dock
+		try
+			set w to browser window 1
+			set collapsed of w to false
+			set visible of w to true
+		end try
+		activate
+	end tell
 else if src is "KNKX" then
 	showSafariTab("knkx.org", "https://www.knkx.org/")
 else
