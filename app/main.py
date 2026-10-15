@@ -16,6 +16,8 @@ CREDS_DIR = os.environ.get("CREDS_DIR", "/creds")
 _hk_lock = threading.Lock()
 _hk_state = {}  # key -> {on, bri, name}
 _reported_unknown = set()  # logged once per change, not every 5 s poll
+HA_STALE_AFTER = 60        # seconds without a successful HA poll before HA-polled devices show as unknown
+_ha_ok = [time.time()]     # time of the last successful poll
 
 
 def _load_ha_config():
@@ -84,8 +86,16 @@ def _poll_ha():
                         sorted(cfg["entities"][k].get("entity") or k for k in unknown)), flush=True)
                 _reported_unknown.clear()
                 _reported_unknown.update(unknown)
+            _ha_ok[0] = time.time()
         except Exception:
-            pass
+            # Ride out short blips, but once HA has been unreachable for a while, show every
+            # HA-polled device as unknown rather than frozen.
+            if time.time() - _ha_ok[0] > HA_STALE_AFTER:
+                polled = [k for k, v in cfg.get("entities", {}).items() if v.get("entity") or v.get("entities")]
+                with _hk_lock:
+                    dropped = [k for k in polled if _hk_state.pop(k, None) is not None]
+                if dropped:
+                    print(f"HA unreachable for over {HA_STALE_AFTER}s; showing {len(dropped)} devices as unknown", flush=True)
         time.sleep(5)
 
 
